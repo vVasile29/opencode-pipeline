@@ -118,4 +118,4 @@ if [[ -f "$GITIGNORE" ]]; then
 fi
 
 echo ""
-echo "==> \u2713 Pipeline uninstalled."
+echo "==> ✓ Pipeline uninstalled."
