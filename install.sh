@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # install.sh — Installs the OpenCode Multi-Agent Pipeline
-# Usage: curl -fsSL https://raw.githubusercontent.com/YOUR_USER/opencode-pipeline/main/install.sh | bash
+# Usage: curl -fsSL https://raw.githubusercontent.com/vVasile29/opencode-pipeline/main/install.sh | bash
 set -euo pipefail
 
 PIPELINE_DIR="$(cd "$(dirname "$0")" && pwd)"
