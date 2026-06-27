@@ -49,7 +49,7 @@ def score_model(model, role):
 
 def build_rankings(free_models, roles):
     """Return (rankings_dict, assigned_dict)."""
-    heavy_roles = ["planner", "pipeline", "debater", "implementer", "reviewer"]
+    heavy_roles = ["planner", "pipeline", "debater", "implementer", "reviewer", "security-reviewer"]
     light_roles = ["tester", "linter", "commit-msg"]
 
     assigned = {}
@@ -66,7 +66,7 @@ def build_rankings(free_models, roles):
         rankings[role_name] = [mid for _, mid in scored]
 
         for s, mid in scored:
-            if role_name in ("debater", "implementer") and mid == assigned.get("planner"):
+            if role_name in ("debater", "implementer", "security-reviewer") and mid == assigned.get("planner"):
                 continue
             assigned[role_name] = mid
             break
@@ -151,7 +151,7 @@ def main():
         with open(rankings_path, "w") as f:
             json.dump(rankings, f, indent=2)
 
-    role_order = ["planner", "pipeline", "debater", "implementer", "reviewer", "tester", "linter", "commit-msg"]
+    role_order = ["planner", "pipeline", "debater", "implementer", "reviewer", "security-reviewer", "tester", "linter", "commit-msg"]
     print("## Model Assignments\n")
     for role_name in role_order:
         mid = assigned.get(role_name)

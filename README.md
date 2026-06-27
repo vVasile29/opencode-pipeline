@@ -1,8 +1,8 @@
 # OpenCode Multi-Agent Pipeline
 
-A reusable 7-agent coding pipeline for [OpenCode](https://opencode.ai). Installs in your global config so every project inherits it.
+A reusable 8-agent coding pipeline for [OpenCode](https://opencode.ai). Installs in your global config so every project inherits it.
 
-**Phases:** clarify(planner) → review-plan(debater) → implement(implementer) → review-code(reviewer) → test(tester) → lint(linter) → commit-msg(commit-msg)
+**Phases:** clarify(planner) → review-plan(debater) → implement(implementer) → review-code(reviewer) → security-review(security-reviewer) → test(tester) → lint(linter) → commit-msg(commit-msg)
 
 Only the **implementer** can touch source files. All other agents are read-only — the debater critiques plans, the reviewer inspects diffs, the tester runs tests, etc.
 
@@ -25,7 +25,7 @@ Then describe what you want built:
 
 > *"Add a due-date field to tasks and an 'overdue' command."*
 
-The pipeline reads the request → plans → debates → implements → reviews → tests → lints → drafts a commit message — all with different specialized models.
+The pipeline reads the request → plans → debates → implements → reviews → security-audits → tests → lints → drafts a commit message — all with different specialized models.
 
 ## Selecting Models
 
@@ -59,11 +59,12 @@ Removes all pipeline agents and restores your original `opencode.json`.
 
 | Role | Model (default) | Permissions | Responsibility |
 |------|----------------|-------------|----------------|
-| **pipeline** | Big Pickle | task whitelist, read-only | Orchestrates the 7-phase handoff |
+| **pipeline** | Big Pickle | task whitelist, read-only | Orchestrates the 8-phase handoff |
 | **planner** | Big Pickle | edit: deny, bash: deny | Clarifies scope, writes plan |
 | **debater** | Nemotron 3 Ultra Free | edit: deny, bash: deny | Critiques plan (different model) |
 | **implementer** | DeepSeek V4 Flash Free | edit: allow, bash: allow | **Only agent that writes code** |
 | **reviewer** | Big Pickle | edit: deny, bash: deny | Reviews diff for correctness |
+| **security-reviewer** | Big Pickle | edit: deny, bash: deny | Audits code for vulnerabilities |
 | **tester** | North Mini Code Free | bash: allow | Runs test suite |
 | **linter** | North Mini Code Free | bash: allow | Runs lint checks |
 | **commit-msg** | North Mini Code Free | bash: allow | Drafts conventional commit |
@@ -127,6 +128,7 @@ opencode
 #   Debater → critiques and approves
 #   Implementer → writes code
 #   Reviewer → checks the diff
+#   Security Reviewer → audits for vulnerabilities
 #   Tester → runs tests
 #   Linter → checks style
 #   Commit Message → drafts a commit
@@ -149,6 +151,7 @@ opencode-pipeline-fallback implementer
 │   ├── debater.md             ← subagent
 │   ├── implementer.md         ← subagent
 │   ├── reviewer.md            ← subagent
+│   ├── security-reviewer.md   ← subagent
 │   ├── tester.md              ← subagent
 │   ├── linter.md              ← subagent
 │   └── commit-msg.md          ← subagent

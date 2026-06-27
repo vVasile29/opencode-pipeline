@@ -30,6 +30,13 @@
       "min_context": 32000,
       "min_output": 8000
     },
+    "security-reviewer": {
+      "description": "Audits code for vulnerabilities: needs reasoning + structured_output for severity findings",
+      "requires": ["reasoning", "tool_call"],
+      "prefers": { "reasoning": 5, "structured_output": 5, "context": 4, "output": 3 },
+      "min_context": 64000,
+      "min_output": 16000
+    },
     "tester": {
       "description": "Lightweight: reads test output, routes results",
       "requires": ["tool_call"],

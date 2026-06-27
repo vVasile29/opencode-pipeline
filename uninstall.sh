@@ -83,7 +83,7 @@ if config.get('default_agent') == 'pipeline':
     changed = True
 
 # Remove any explicit pipeline agent blocks
-pipeline_agents = {"pipeline", "planner", "debater", "implementer", "reviewer", "tester", "linter", "commit-msg"}
+pipeline_agents = {"pipeline", "planner", "debater", "implementer", "reviewer", "security-reviewer", "tester", "linter", "commit-msg"}
 agent_block = config.get('agent', {})
 if isinstance(agent_block, dict):
     for name in list(agent_block.keys()):

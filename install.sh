@@ -12,7 +12,7 @@ BACKUP="$CONFIG_DIR/.opencode-pipeline-config-backup.json"
 CONFIG_FILE="$CONFIG_DIR/opencode.json"
 BIN_DIR="${HOME}/.local/bin"
 
-AGENTS=("pipeline.md" "planner.md" "debater.md" "implementer.md" "reviewer.md" "tester.md" "linter.md" "commit-msg.md")
+AGENTS=("pipeline.md" "planner.md" "debater.md" "implementer.md" "reviewer.md" "security-reviewer.md" "tester.md" "linter.md" "commit-msg.md")
 SCRIPTS=("select-models.sh" "auto-select-models.sh" "opencode-pipeline-fallback")
 MODEL_FILES=("assign_models.py" "roles.json")
 
