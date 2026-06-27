@@ -80,6 +80,64 @@ All configuration is in `~/.config/opencode/agents/` — plain markdown with YAM
 4. The pipeline reads the state file again to check routing before each handoff
 5. If any agent routes back (e.g. reviewer → implementer), the pipeline follows that
 
+## Examples
+
+### Swap a failing agent's model
+
+When a subagent hits a quota/rate-limit error, the pipeline tells you which one failed. Swap its model interactively:
+
+```bash
+# Interactive: pick an agent, then pick a model from the free pool
+opencode-pipeline-fallback
+
+# Or pick a model for a specific agent
+opencode-pipeline-fallback tester
+
+# Non-interactive: auto-assign the next best free model
+opencode-pipeline-fallback --auto planner
+
+# Show all agents and their current models
+opencode-pipeline-fallback --list
+```
+
+### Re-assign all models
+
+After providers rotate their free models, re-optimize the whole pipeline:
+
+```bash
+# Interactive (fzf per role)
+curl -fsSL https://raw.githubusercontent.com/vVasile29/opencode-pipeline/master/select-models.sh | bash
+
+# Fully automatic (capability scoring)
+curl -fsSL https://raw.githubusercontent.com/vVasile29/opencode-pipeline/master/auto-select-models.sh | bash
+```
+
+### Full workflow
+
+```bash
+# 1. Install (one time)
+curl -fsSL https://raw.githubusercontent.com/vVasile29/opencode-pipeline/master/install.sh | bash
+
+# 2. Open a project and describe what to build
+cd ~/my-project
+opencode
+
+# Pipeline output:
+#   Planner → writes a plan
+#   Debater → critiques and approves
+#   Implementer → writes code
+#   Reviewer → checks the diff
+#   Tester → runs tests
+#   Linter → checks style
+#   Commit Message → drafts a commit
+
+# 3. If a step fails with quota, swap its model
+opencode-pipeline-fallback implementer
+
+# 4. Tell the pipeline to retry
+#    (it will pick up where it left off)
+```
+
 ## Files
 
 ```
