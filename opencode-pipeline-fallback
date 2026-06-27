@@ -18,10 +18,18 @@ SCRIPT_NAME="$(basename "$0")"
 usage() {
   echo "Usage: $SCRIPT_NAME [--auto|--list] [<agent-name>]"
   echo ""
-  echo "  (no args)    Interactive: pick an agent, then pick a model via fzf"
-  echo "  <agent>       Skip agent pick, go straight to model selection"
-  echo "  --auto <agent> Auto-assign next best free model (non-interactive)"
+  echo "  (no args)     Interactive: pick an agent, then pick a model via fzf"
+  echo "  <agent-name>  Skip agent pick — pick a model for the named agent"
+  echo "  --auto <name> Non-interactive: assign next best free model to agent"
   echo "  --list        Show all agents and their current models"
+  echo ""
+  echo "Agent names: planner, debater, implementer, reviewer, tester, linter, commit-msg, pipeline"
+  echo ""
+  echo "Examples:"
+  echo "  $SCRIPT_NAME                      # pick agent + model interactively"
+  echo "  $SCRIPT_NAME planner              # pick new model for planner"
+  echo "  $SCRIPT_NAME --auto tester        # auto-assign best model for tester"
+  echo "  $SCRIPT_NAME --list               # see all agents and models"
   exit 0
 }
 
@@ -254,7 +262,7 @@ case "$MODE" in
     fi
 
     # Check agent exists
-    local agent_file="$AGENTS_DIR/$TARGET.md"
+    agent_file="$AGENTS_DIR/$TARGET.md"
     if [[ ! -f "$agent_file" ]]; then
       echo "  ✗ Agent '$TARGET' not found (expected $agent_file)"
       echo "  Available agents:"
