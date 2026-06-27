@@ -90,7 +90,7 @@ if isinstance(agent_block, dict):
         if name in pipeline_agents:
             del agent_block[name]
             changed = True
-    if not agent_block:
+    if not agent_block and 'agent' in config:
         del config['agent']
         changed = True
 
