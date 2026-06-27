@@ -7,20 +7,22 @@ CONFIG_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/opencode"
 MANIFEST="$CONFIG_DIR/.opencode-pipeline-manifest.json"
 BACKUP="$CONFIG_DIR/.opencode-pipeline-config-backup.json"
 CONFIG_FILE="$CONFIG_DIR/opencode.json"
+SCRIPTS_DIR="$CONFIG_DIR/scripts"
+STATE_FILE="$CONFIG_DIR/.opencode-pipeline-fallback.json"
+BIN_DIR="${HOME}/.local/bin"
 
 echo "==> Uninstalling OpenCode Multi-Agent Pipeline"
 echo ""
 
 if [[ ! -f "$MANIFEST" ]]; then
-  echo "    ⚠ No manifest found at $MANIFEST"
-  echo "    Nothing to uninstall."
+  echo "    No manifest found — nothing to uninstall."
   exit 0
 fi
 
 # 1. Read manifest and remove agent files
 echo "==> Removing agent files..."
 python3 <<PYEOF
-import json
+import json, os
 
 with open("$MANIFEST") as f:
     manifest = json.load(f)
@@ -28,24 +30,42 @@ with open("$MANIFEST") as f:
 agents_dir = "$CONFIG_DIR/agents"
 removed = 0
 for fname in manifest.get("files", []):
-    path = "$CONFIG_DIR/agents/" + fname.split("/")[-1]
-    import os
+    path = os.path.join(agents_dir, fname.split("/")[-1])
     if os.path.exists(path):
         os.remove(path)
         removed += 1
-        print(f"    ✗ {fname}")
+        print(f"    \u2717 {fname}")
 
 if removed == 0:
     print("    (no agent files to remove)")
 PYEOF
 
-# 2. Restore backed-up config
+# 2. Remove scripts directory
+if [[ -d "$SCRIPTS_DIR" ]]; then
+  rm -rf "$SCRIPTS_DIR"
+  echo "==> Removed scripts/ directory"
+fi
+
+# 3. Remove symlinks
+for link in opencode-pipeline-fallback; do
+  if [[ -L "$BIN_DIR/$link" ]]; then
+    rm "$BIN_DIR/$link"
+    echo "==> Removed symlink: $BIN_DIR/$link"
+  fi
+done
+
+# 4. Remove fallback state (legacy)
+if [[ -f "$STATE_FILE" ]]; then
+  rm "$STATE_FILE"
+  echo "==> Removed fallback state"
+fi
+
+# 5. Restore backed-up config
 if [[ -f "$BACKUP" ]]; then
   cp "$BACKUP" "$CONFIG_FILE"
   rm "$BACKUP"
   echo "==> Restored original config from backup"
 else
-  # Remove default_agent from config if no backup
   if command -v python3 &>/dev/null && [[ -f "$CONFIG_FILE" ]]; then
     echo "==> Removing default_agent from config..."
     python3 <<PYEOF
@@ -61,16 +81,16 @@ with open("$CONFIG_FILE", 'w') as f:
     json.dump(config, f, indent=2)
     f.write('\n')
 
-print('    ✓ default_agent removed')
+print('    \u2713 default_agent removed')
 PYEOF
   fi
 fi
 
-# 3. Remove manifest
+# 6. Remove manifest
 rm "$MANIFEST"
 echo "==> Removed manifest"
 
-# 4. Clean gitignore entry (gentle — only remove exact match)
+# 7. Clean gitignore entry
 GITIGNORE="$CONFIG_DIR/.gitignore"
 if [[ -f "$GITIGNORE" ]]; then
   TMP=$(mktemp)
@@ -80,4 +100,4 @@ if [[ -f "$GITIGNORE" ]]; then
 fi
 
 echo ""
-echo "==> ✓ Pipeline uninstalled."
+echo "==> \u2713 Pipeline uninstalled."

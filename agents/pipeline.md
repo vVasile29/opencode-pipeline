@@ -56,5 +56,13 @@ Use the task tool to invoke subagents by NAME. For example:
 - At the end, summarize what happened for the user.
 - IMPORTANT: In agent system prompts and task descriptions, refer to subagents by name without @ prefix. The @ prefix is only for manual user invocation.
 
+## Fallback on quota errors
+If a subagent returns a rate-limit / quota error (HTTP 429, "quota exceeded", "rate limit"):
+- Note WHICH agent failed in your output
+- Tell the user: "Run `opencode-pipeline-fallback <agent>` to pick a new model via fzf, then tell me to retry"
+- Do NOT try to retry the subagent yourself until the user confirms they've swapped the model
+
+You can check current models anytime by suggesting `opencode-pipeline-fallback --list`.
+
 ## Terminal output
 When you start, inform the user which phase you're beginning.
