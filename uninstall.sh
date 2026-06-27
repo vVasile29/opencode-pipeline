@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # uninstall.sh — Removes the OpenCode Multi-Agent Pipeline
-# Usage: curl -fsSL https://raw.githubusercontent.com/vVasile29/opencode-pipeline/main/uninstall.sh | bash
+# Usage: curl -fsSL https://raw.githubusercontent.com/vVasile29/opencode-pipeline/master/uninstall.sh | bash
 set -euo pipefail
 
 CONFIG_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/opencode"

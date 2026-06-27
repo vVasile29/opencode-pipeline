@@ -9,7 +9,7 @@ Only the **implementer** can touch source files. All other agents are read-only 
 ## Quick Install
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/vVasile29/opencode-pipeline/main/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/vVasile29/opencode-pipeline/master/install.sh | bash
 ```
 
 Then `cd` into any project and run `opencode`. The pipeline agent is now your default.
@@ -34,7 +34,7 @@ The pipeline uses OpenCode Zen free models by default. Models change over time â
 ### Interactive (recommended)
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/vVasile29/opencode-pipeline/main/select-models.sh | bash
+curl -fsSL https://raw.githubusercontent.com/vVasile29/opencode-pipeline/master/select-models.sh | bash
 ```
 
 Uses `fzf` (if available) to let you pick a model for each role from the current free pool.
@@ -42,7 +42,7 @@ Uses `fzf` (if available) to let you pick a model for each role from the current
 ### Auto-select
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/vVasile29/opencode-pipeline/main/auto-select-models.sh | bash
+curl -fsSL https://raw.githubusercontent.com/vVasile29/opencode-pipeline/master/auto-select-models.sh | bash
 ```
 
 Scores every free model by capability and assigns the best fit to each role automatically.
@@ -50,7 +50,7 @@ Scores every free model by capability and assigns the best fit to each role auto
 ## Uninstall
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/vVasile29/opencode-pipeline/main/uninstall.sh | bash
+curl -fsSL https://raw.githubusercontent.com/vVasile29/opencode-pipeline/master/uninstall.sh | bash
 ```
 
 Removes all pipeline agents and restores your original `opencode.json`.

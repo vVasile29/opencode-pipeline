@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # install.sh — Installs the OpenCode Multi-Agent Pipeline
-# Usage: curl -fsSL https://raw.githubusercontent.com/vVasile29/opencode-pipeline/main/install.sh | bash
+# Usage: curl -fsSL https://raw.githubusercontent.com/vVasile29/opencode-pipeline/master/install.sh | bash
 set -euo pipefail
 
 PIPELINE_DIR="$(cd "$(dirname "$0")" && pwd)"
@@ -118,4 +118,4 @@ echo "      opencode-pipeline-fallback <agent>   Swap a failing agent's model vi
 echo "      opencode-pipeline-fallback --list    Show all agents and their models"
 echo ""
 echo "    To auto-assign models: $SCRIPTS_DIR/auto-select-models.sh"
-echo "    To uninstall:     curl -fsSL .../uninstall.sh | bash"
+echo "    To uninstall:     curl -fsSL https://raw.githubusercontent.com/vVasile29/opencode-pipeline/master/uninstall.sh | bash"
