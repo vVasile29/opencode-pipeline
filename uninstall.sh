@@ -60,30 +60,48 @@ if [[ -f "$STATE_FILE" ]]; then
   echo "==> Removed fallback state"
 fi
 
-# 5. Restore backed-up config
+# 5. Restore backed-up config then clean any remaining pipeline references
 if [[ -f "$BACKUP" ]]; then
   cp "$BACKUP" "$CONFIG_FILE"
   rm "$BACKUP"
   echo "==> Restored original config from backup"
-else
-  if command -v python3 &>/dev/null && [[ -f "$CONFIG_FILE" ]]; then
-    echo "==> Removing default_agent from config..."
-    python3 <<PYEOF
+fi
+
+# Always clean any remaining pipeline references from the config
+if command -v python3 &>/dev/null && [[ -f "$CONFIG_FILE" ]]; then
+  python3 <<PYEOF
 import json
 
 with open("$CONFIG_FILE") as f:
     config = json.load(f)
 
+changed = False
+
+# Remove default_agent if it points to pipeline
 if config.get('default_agent') == 'pipeline':
     del config['default_agent']
+    changed = True
 
-with open("$CONFIG_FILE", 'w') as f:
-    json.dump(config, f, indent=2)
-    f.write('\n')
+# Remove any explicit pipeline agent blocks
+pipeline_agents = {"pipeline", "planner", "debater", "implementer", "reviewer", "tester", "linter", "commit-msg"}
+agent_block = config.get('agent', {})
+if isinstance(agent_block, dict):
+    for name in list(agent_block.keys()):
+        if name in pipeline_agents:
+            del agent_block[name]
+            changed = True
+    if not agent_block:
+        del config['agent']
+        changed = True
 
-print('    \u2713 default_agent removed')
+if changed:
+    with open("$CONFIG_FILE", 'w') as f:
+        json.dump(config, f, indent=2)
+        f.write('\n')
+    print('    Cleaned pipeline references from config')
+else:
+    print('    Config already clean')
 PYEOF
-  fi
 fi
 
 # 6. Remove manifest
