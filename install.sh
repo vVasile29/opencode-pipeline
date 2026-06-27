@@ -3,7 +3,7 @@
 # Usage: curl -fsSL https://raw.githubusercontent.com/vVasile29/opencode-pipeline/master/install.sh | bash
 set -euo pipefail
 
-PIPELINE_DIR="$(cd "$(dirname "$0")" && pwd)"
+REPO_URL="https://raw.githubusercontent.com/vVasile29/opencode-pipeline/master"
 CONFIG_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/opencode"
 AGENTS_DIR="$CONFIG_DIR/agents"
 SCRIPTS_DIR="$CONFIG_DIR/scripts"
@@ -12,40 +12,41 @@ BACKUP="$CONFIG_DIR/.opencode-pipeline-config-backup.json"
 CONFIG_FILE="$CONFIG_DIR/opencode.json"
 BIN_DIR="${HOME}/.local/bin"
 
+AGENTS=("pipeline.md" "planner.md" "debater.md" "implementer.md" "reviewer.md" "tester.md" "linter.md" "commit-msg.md")
+SCRIPTS=("select-models.sh" "auto-select-models.sh" "opencode-pipeline-fallback")
+MODEL_FILES=("assign_models.py" "roles.json")
+
 echo "==> Installing OpenCode Multi-Agent Pipeline"
 echo "    Target: $CONFIG_DIR"
 echo ""
 
-mkdir -p "$AGENTS_DIR" "$SCRIPTS_DIR" "$BIN_DIR"
+mkdir -p "$AGENTS_DIR" "$SCRIPTS_DIR/models" "$BIN_DIR"
 
-# 1. Copy agent files
-echo "==> Copying agents..."
+# 1. Download agent files
+echo "==> Downloading agents..."
 INSTALLED_FILES=""
-for f in "$PIPELINE_DIR"/agents/*.md; do
-  basename=$(basename "$f")
-  cp "$f" "$AGENTS_DIR/$basename"
-  INSTALLED_FILES="$INSTALLED_FILES\"$basename\","
-  echo "    ✓ agents/$basename"
+for f in "${AGENTS[@]}"; do
+  curl -fsSL "$REPO_URL/agents/$f" -o "$AGENTS_DIR/$f"
+  INSTALLED_FILES="$INSTALLED_FILES\"$f\","
+  echo "    ✓ agents/$f"
 done
 INSTALLED_FILES="[${INSTALLED_FILES%,}]"
 
-# 2. Copy scripts (model tools + pipeline wrapper)
-echo "==> Copying scripts..."
+# 2. Download scripts
+echo "==> Downloading scripts..."
 INSTALLED_SCRIPTS=""
-for script in select-models.sh auto-select-models.sh opencode-pipeline-fallback; do
-  if [[ -f "$PIPELINE_DIR/$script" ]]; then
-    cp "$PIPELINE_DIR/$script" "$SCRIPTS_DIR/$script"
-    INSTALLED_SCRIPTS="$INSTALLED_SCRIPTS\"$script\","
-    echo "    ✓ scripts/$script"
-  fi
+for script in "${SCRIPTS[@]}"; do
+  curl -fsSL "$REPO_URL/$script" -o "$SCRIPTS_DIR/$script"
+  chmod +x "$SCRIPTS_DIR/$script"
+  INSTALLED_SCRIPTS="$INSTALLED_SCRIPTS\"$script\","
+  echo "    ✓ scripts/$script"
 done
 INSTALLED_SCRIPTS="[${INSTALLED_SCRIPTS%,}]"
 
-# 3. Copy model data files
-mkdir -p "$SCRIPTS_DIR/models"
-for f in "$PIPELINE_DIR"/models/*; do
-  basename=$(basename "$f")
-  cp "$f" "$SCRIPTS_DIR/models/$basename"
+# 3. Download model data files
+echo "==> Downloading model data..."
+for f in "${MODEL_FILES[@]}"; do
+  curl -fsSL "$REPO_URL/models/$f" -o "$SCRIPTS_DIR/models/$f"
 done
 echo "    ✓ models/ (data files)"
 
@@ -79,7 +80,7 @@ with open(config_file, 'w') as f:
     json.dump(config, f, indent=2)
     f.write('\n')
 
-print('    ✓ default_agent set to pipeline')
+print('    default_agent set to pipeline')
 PYEOF
 
 # 7. Write manifest
@@ -98,7 +99,7 @@ manifest = {
 with open("$MANIFEST", 'w') as f:
     json.dump(manifest, f, indent=2)
 
-print('    ✓ manifest written')
+print('    \u2713 manifest written')
 PYEOF
 
 # 8. Add state file to global gitignore
