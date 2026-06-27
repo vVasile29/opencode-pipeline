@@ -1,0 +1,65 @@
+{
+  "version": 1,
+  "description": "Capability requirements per pipeline role. Lower weight = less important.",
+  "roles": {
+    "planner": {
+      "description": "Strongest reasoner with structured_output for plans",
+      "requires": ["reasoning", "tool_call"],
+      "prefers": { "reasoning": 5, "structured_output": 5, "context": 2, "output": 3 },
+      "min_context": 32000,
+      "min_output": 8000
+    },
+    "debater": {
+      "description": "Good reasoner, different model from planner, big context for reviewing",
+      "requires": ["reasoning", "tool_call"],
+      "prefers": { "reasoning": 4, "structured_output": 3, "context": 4, "output": 2 },
+      "min_context": 64000,
+      "min_output": 8000
+    },
+    "implementer": {
+      "description": "Solid coder: needs output space and tool_call",
+      "requires": ["reasoning", "tool_call"],
+      "prefers": { "reasoning": 3, "tool_call": 5, "output": 5, "context": 3 },
+      "min_context": 32000,
+      "min_output": 32000
+    },
+    "reviewer": {
+      "description": "Good reasoner to review diffs (can share model with planner)",
+      "requires": ["reasoning", "tool_call"],
+      "prefers": { "reasoning": 5, "structured_output": 3, "context": 2, "output": 2 },
+      "min_context": 32000,
+      "min_output": 8000
+    },
+    "tester": {
+      "description": "Lightweight: reads test output, routes results",
+      "requires": ["tool_call"],
+      "prefers": { "tool_call": 3, "reasoning": 1, "context": 1, "output": 1 },
+      "min_context": 16000,
+      "min_output": 4000,
+      "size": "small"
+    },
+    "linter": {
+      "description": "Lightweight: reads lint output, routes results",
+      "requires": ["tool_call"],
+      "prefers": { "tool_call": 3, "reasoning": 1, "context": 1, "output": 1 },
+      "min_context": 16000,
+      "min_output": 4000,
+      "size": "small"
+    },
+    "commit-msg": {
+      "description": "Lightweight: reads git diff, writes commit message",
+      "requires": ["tool_call"],
+      "prefers": { "tool_call": 3, "reasoning": 2, "context": 1, "output": 2 },
+      "min_context": 16000,
+      "min_output": 4000,
+      "size": "small"
+    },
+    "pipeline": {
+      "description": "Orchestrator: delegates to subagents, needs strong reasoning",
+      "requires": ["reasoning", "tool_call"],
+      "prefers": { "reasoning": 5, "tool_call": 5, "structured_output": 4, "context": 3, "output": 2 },
+      "min_context": 64000,
+      "min_output": 8000
+    }
+  }
+}
