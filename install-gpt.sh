@@ -20,56 +20,53 @@ mkdir -p "$AGENTS_DIR"
 
 # 1. Download GPT agent files
 echo "==> Downloading GPT agents..."
-INSTALLED_FILES=""
+INSTALLED_JSON=""
 for f in "${GPT_AGENTS[@]}"; do
   curl -fsSL "$REPO_URL/gpt/$f" -o "$AGENTS_DIR/$f"
-  INSTALLED_FILES="$INSTALLED_FILES\"$f\","
+  INSTALLED_JSON="$INSTALLED_JSON\"$f\","
   echo "    ✓ agents/$f"
 done
-INSTALLED_FILES="[${INSTALLED_FILES%,}]"
+INSTALLED_JSON="[${INSTALLED_JSON%,}]"
 
-# 2. Prompt to set pipeline-gpt as default
+# 2. Optionally set pipeline-gpt as default (skip if non-interactive / pipe mode)
 echo ""
-DEFAULT=""
-read -r -p "Set pipeline-gpt as your default agent? [y/N] " DEFAULT
-if [[ "$DEFAULT" =~ ^[Yy] ]]; then
-  python3 <<PYEOF
+if [[ -t 0 ]]; then
+  DEFAULT=""
+  read -r -p "Set pipeline-gpt as your default agent? [y/N] " DEFAULT
+  if [[ "$DEFAULT" =~ ^[Yy] ]]; then
+    python3 -c "
 import json, os
-
-config_file = "$CONFIG_FILE"
-
+config_file = '$CONFIG_FILE'
 if os.path.exists(config_file):
     with open(config_file) as f:
         config = json.load(f)
 else:
     config = {}
-
 config['default_agent'] = 'pipeline-gpt'
-
 with open(config_file, 'w') as f:
     json.dump(config, f, indent=2)
     f.write('\n')
-
 print('    default_agent set to pipeline-gpt')
-PYEOF
+"
+  fi
+else
+  echo "    (non-interactive — skipping default_agent prompt)"
+  echo "    To set as default later: opencode.json → \"default_agent\": \"pipeline-gpt\""
 fi
 
-# 3. Write manifest
+# 3. Write manifest (use temp file to avoid heredoc/stdin conflict in pipe mode)
 echo "==> Writing manifest..."
-python3 <<PYEOF
+python3 -c "
 import json, datetime
-
 manifest = {
-    "version": 1,
-    "installed_at": datetime.datetime.now(datetime.timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ'),
-    "files": $INSTALLED_FILES
+    'version': 1,
+    'installed_at': datetime.datetime.now(datetime.timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ'),
+    'files': $INSTALLED_JSON
 }
-
-with open("$MANIFEST", 'w') as f:
+with open('$MANIFEST', 'w') as f:
     json.dump(manifest, f, indent=2)
-
 print('    manifest written')
-PYEOF
+"
 
 # 4. Ensure state file is gitignored
 GITIGNORE="$CONFIG_DIR/.gitignore"
@@ -85,10 +82,8 @@ echo "    Both pipelines are now available in opencode's agent selector (Tab key
 echo "      • pipeline      — free OpenCode Zen models"
 echo "      • pipeline-gpt — your paid OpenAI models"
 echo ""
-if [[ ! "$DEFAULT" =~ ^[Yy] ]]; then
-  echo "    To switch, press Tab in the opencode TUI and select pipeline-gpt."
-  echo "    Or set it as default: opencode.json → \"default_agent\": \"pipeline-gpt\""
-fi
+echo "    To switch, press Tab in the opencode TUI and select pipeline-gpt."
+echo "    Or set it as default: opencode.json → \"default_agent\": \"pipeline-gpt\""
 echo ""
 echo "    To uninstall:"
 echo "      curl -fsSL https://raw.githubusercontent.com/vVasile29/opencode-pipeline/master/uninstall-gpt.sh | bash"
