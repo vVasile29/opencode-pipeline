@@ -13,7 +13,7 @@ CONFIG_FILE="$CONFIG_DIR/opencode.json"
 BIN_DIR="${HOME}/.local/bin"
 
 AGENTS=("pipeline.md" "planner.md" "debater.md" "implementer.md" "reviewer.md" "security-reviewer.md" "tester.md" "linter.md" "commit-msg.md")
-SCRIPTS=("select-models.sh" "auto-select-models.sh" "opencode-pipeline-fallback")
+SCRIPTS=("select-models.sh" "auto-select-models.sh")
 MODEL_FILES=("assign_models.py" "roles.json")
 
 echo "==> Installing OpenCode Multi-Agent Pipeline"
@@ -50,10 +50,8 @@ for f in "${MODEL_FILES[@]}"; do
 done
 echo "    ✓ models/ (data files)"
 
-# 4. Create symlinks in ~/.local/bin
-echo "==> Creating symlinks..."
-ln -sf "$SCRIPTS_DIR/opencode-pipeline-fallback" "$BIN_DIR/opencode-pipeline-fallback"
-echo "    ✓ $BIN_DIR/opencode-pipeline-fallback"
+# 4. Symlinks — currently none
+echo "==> Symlinks (none needed)"
 
 # 5. Backup existing config
 if [[ -f "$CONFIG_FILE" ]]; then
@@ -114,9 +112,9 @@ echo "==> ✓ Pipeline installed!"
 echo ""
 echo "    Run 'opencode' in any project — pipeline is your default agent."
 echo ""
-echo "    Commands (ensure ~/.local/bin is in your PATH):"
-echo "      opencode-pipeline-fallback <agent>   Swap a failing agent's model via fzf"
-echo "      opencode-pipeline-fallback --list    Show all agents and their models"
+echo "    To (re-)assign models:"
+echo "      $SCRIPTS_DIR/auto-select-models.sh    (automatic, capability-scored)"
+echo "      $SCRIPTS_DIR/select-models.sh          (interactive, fzf)"
 echo ""
-echo "    To auto-assign models: $SCRIPTS_DIR/auto-select-models.sh"
-echo "    To uninstall:     curl -fsSL https://raw.githubusercontent.com/vVasile29/opencode-pipeline/master/uninstall.sh | bash"
+echo "    To uninstall:"
+echo "      curl -fsSL https://raw.githubusercontent.com/vVasile29/opencode-pipeline/master/uninstall.sh | bash"

@@ -8,7 +8,6 @@ MANIFEST="$CONFIG_DIR/.opencode-pipeline-manifest.json"
 BACKUP="$CONFIG_DIR/.opencode-pipeline-config-backup.json"
 CONFIG_FILE="$CONFIG_DIR/opencode.json"
 SCRIPTS_DIR="$CONFIG_DIR/scripts"
-STATE_FILE="$CONFIG_DIR/.opencode-pipeline-fallback.json"
 BIN_DIR="${HOME}/.local/bin"
 
 echo "==> Uninstalling OpenCode Multi-Agent Pipeline"
@@ -46,21 +45,7 @@ if [[ -d "$SCRIPTS_DIR" ]]; then
   echo "==> Removed scripts/ directory"
 fi
 
-# 3. Remove symlinks
-for link in opencode-pipeline-fallback; do
-  if [[ -L "$BIN_DIR/$link" ]]; then
-    rm "$BIN_DIR/$link"
-    echo "==> Removed symlink: $BIN_DIR/$link"
-  fi
-done
-
-# 4. Remove fallback state (legacy)
-if [[ -f "$STATE_FILE" ]]; then
-  rm "$STATE_FILE"
-  echo "==> Removed fallback state"
-fi
-
-# 5. Restore backed-up config then clean any remaining pipeline references
+# 3. Restore backed-up config then clean any remaining pipeline references
 if [[ -f "$BACKUP" ]]; then
   cp "$BACKUP" "$CONFIG_FILE"
   rm "$BACKUP"
@@ -104,11 +89,11 @@ else:
 PYEOF
 fi
 
-# 6. Remove manifest
+# 4. Remove manifest
 rm "$MANIFEST"
 echo "==> Removed manifest"
 
-# 7. Clean gitignore entry
+# 5. Clean gitignore entry
 GITIGNORE="$CONFIG_DIR/.gitignore"
 if [[ -f "$GITIGNORE" ]]; then
   TMP=$(mktemp)

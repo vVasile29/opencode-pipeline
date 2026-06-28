@@ -47,58 +47,6 @@ curl -fsSL https://raw.githubusercontent.com/vVasile29/opencode-pipeline/master/
 
 Scores every free model by capability and assigns the best fit to each role automatically.
 
-## Model Availability
-
-Free models change constantly — providers deprecate them, rate-limit them, or rotate their offerings. The pipeline handles this gracefully:
-
-### During a session
-If a subagent's model returns a quota/rate-limit error, the pipeline tells you which agent failed and suggests a fallback command. Swap the model without restarting `opencode`:
-
-```bash
-# See which agent failed, then swap it
-opencode-pipeline-fallback tester
-
-# Or let it pick the next best automatically
-opencode-pipeline-fallback --auto planner
-
-# Check all current models
-opencode-pipeline-fallback --list
-```
-
-After swapping, tell the pipeline to retry. It re-reads the state file and continues from where it left off.
-
-### If the pipeline agent itself fails
-No orchestrator remains to suggest a fallback. Fix from your terminal:
-
-```bash
-opencode-pipeline-fallback --auto pipeline
-opencode
-```
-
-The session's `.opencode-workflow-state.md` persists in the project directory, so the new run picks up where it left off.
-
-### After a provider rotates free models
-Re-optimize all roles at once:
-
-```bash
-# Automatic — scores and assigns the best fit
-auto-select-models.sh
-```
-
-### Manually
-Agent files are plain markdown — edit the `model:` line directly:
-
-```bash
-nano ~/.config/opencode/agents/planner.md
-# Change: model: opencode/big-pickle → model: opencode/new-model-name
-```
-
-### Install and uninstall are unaffected
-The install/uninstall scripts never call model APIs or read the models cache. They only copy files into your config directory. A deprecated model doesn't block install or uninstall.
-
-### If the models cache is stale
-`opencode-pipeline-fallback` and `auto-select-models.sh` read from `~/.cache/opencode/models.json`. Run `opencode` once to refresh it if you see stale options.
-
 ## Uninstall
 
 ```bash
@@ -135,24 +83,6 @@ All configuration is in `~/.config/opencode/agents/` — plain markdown with YAM
 
 ## Examples
 
-### Swap a failing agent's model
-
-When a subagent hits a quota/rate-limit error, the pipeline tells you which one failed. Swap its model interactively:
-
-```bash
-# Interactive: pick an agent, then pick a model from the free pool
-opencode-pipeline-fallback
-
-# Or pick a model for a specific agent
-opencode-pipeline-fallback tester
-
-# Non-interactive: auto-assign the next best free model
-opencode-pipeline-fallback --auto planner
-
-# Show all agents and their current models
-opencode-pipeline-fallback --list
-```
-
 ### Re-assign all models
 
 After providers rotate their free models, re-optimize the whole pipeline:
@@ -184,12 +114,6 @@ opencode
 #   Tester → runs tests
 #   Linter → checks style
 #   Commit Message → drafts a commit
-
-# 3. If a step fails with quota, swap its model
-opencode-pipeline-fallback implementer
-
-# 4. Tell the pipeline to retry
-#    (it will pick up where it left off)
 ```
 
 ## Files

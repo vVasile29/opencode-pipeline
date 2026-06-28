@@ -1,28 +1,13 @@
 #!/usr/bin/env bash
 # auto-select-models.sh — Assigns best free OpenCode Zen models to each pipeline role
 # Uses capability scoring from models/roles.json against ~/.cache/opencode/models.json
-# Safe to run anytime models change or rate limits are hit.
-#
-# Options:
-#   --state-file <path>   Also write fallback rankings state to <path>
+# Safe to run anytime models change.
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 ROLES_FILE="$SCRIPT_DIR/models/roles.json"
 CACHE_FILE="${HOME}/.cache/opencode/models.json"
 AGENTS_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/opencode/agents"
-
-STATE_FILE=""
-ARGS=()
-for arg in "$@"; do
-  if [[ "$arg" == "--state-file" ]]; then
-    STATE_FILE="--state-file"
-  elif [[ -n "$STATE_FILE" && "$STATE_FILE" == "--state-file" ]]; then
-    STATE_FILE="$arg"
-  else
-    ARGS+=("$arg")
-  fi
-done
 
 echo "==> Auto-selecting models for pipeline roles"
 echo ""
@@ -85,40 +70,6 @@ fi
 FREE_MODELS_FILE=$(mktemp /tmp/opencode-free-models-XXXX.json)
 echo "$FREE_MODELS" > "$FREE_MODELS_FILE"
 
-# Build args for assign_models.py
-PY_ARGS=()
-PY_ARGS+=("$FREE_MODELS_FILE" "$ROLES_FILE" "$AGENTS_DIR")
-
-RANKINGS_FILE=""
-if [[ -n "$STATE_FILE" ]]; then
-  RANKINGS_FILE=$(mktemp /tmp/opencode-rankings-XXXX.json)
-  PY_ARGS+=("--rankings" "$RANKINGS_FILE")
-fi
-
-python3 "$SCRIPT_DIR/models/assign_models.py" "${PY_ARGS[@]}"
-
-# If we generated rankings, wrap into state file with tier info
-if [[ -n "$STATE_FILE" && -n "$RANKINGS_FILE" ]]; then
-  python3 -c "
-import json
-
-with open('$RANKINGS_FILE') as f:
-    rankings = json.load(f)
-
-max_tier = max(len(v) - 1 for v in rankings.values()) if rankings else 0
-
-state = {
-    'version': 1,
-    'tier': 0,
-    'max_tier': max_tier,
-    'rankings': rankings,
-}
-
-with open('$STATE_FILE', 'w') as f:
-    json.dump(state, f, indent=2)
-print(f'    \u2713 Fallback state saved ({len(rankings)} roles, {max_tier} fallback tiers)')
-"
-  rm -f "$RANKINGS_FILE"
-fi
+python3 "$SCRIPT_DIR/models/assign_models.py" "$FREE_MODELS_FILE" "$ROLES_FILE" "$AGENTS_DIR"
 
 rm -f "$FREE_MODELS_FILE"

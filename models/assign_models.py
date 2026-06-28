@@ -2,7 +2,7 @@
 """Assign the best free model to each pipeline role.
 
 Usage:
-  assign_models.py <free_models.json> <roles.json> <agents_dir> [--rankings <out.json>]
+  assign_models.py <free_models.json> <roles.json> <agents_dir>
 """
 import json
 import os
@@ -47,13 +47,12 @@ def score_model(model, role):
     return score
 
 
-def build_rankings(free_models, roles):
-    """Return (rankings_dict, assigned_dict)."""
+def assign_models(free_models, roles):
+    """Return assigned dict mapping role_name -> model_id."""
     heavy_roles = ["planner", "pipeline", "debater", "implementer", "reviewer", "security-reviewer"]
     light_roles = ["tester", "linter", "commit-msg"]
 
     assigned = {}
-    rankings = {}
 
     for role_name in heavy_roles:
         role = roles[role_name]
@@ -63,7 +62,6 @@ def build_rankings(free_models, roles):
             if s >= 0:
                 scored.append((s, m["id"]))
         scored.sort(key=lambda x: (-x[0], x[1]))
-        rankings[role_name] = [mid for _, mid in scored]
 
         for s, mid in scored:
             if role_name in ("debater", "implementer", "security-reviewer") and mid == assigned.get("planner"):
@@ -83,7 +81,6 @@ def build_rankings(free_models, roles):
             if s >= 0:
                 scored.append((m.get("context", 0) + m.get("output", 0), m["id"]))
         scored.sort(key=lambda x: (x[0], x[1]))
-        rankings[role_name] = [mid for _, mid in scored]
 
         best_model = None
         for m in candidates:
@@ -95,7 +92,7 @@ def build_rankings(free_models, roles):
         if best_model:
             assigned[role_name] = best_model
 
-    return rankings, assigned
+    return assigned
 
 
 def update_agent_files(agents_dir, assigned):
@@ -121,35 +118,19 @@ def update_agent_files(agents_dir, assigned):
 
 
 def main():
-    rankings_path = None
-    filtered = []
-    i = 1
-    while i < len(sys.argv):
-        a = sys.argv[i]
-        if a == "--rankings" and i + 1 < len(sys.argv):
-            rankings_path = sys.argv[i + 1]
-            i += 2
-        else:
-            filtered.append(a)
-            i += 1
-
-    if len(filtered) < 3:
-        print("Usage: assign_models.py [--rankings <out.json>] <free_models.json> <roles.json> <agents_dir>",
+    if len(sys.argv) < 4:
+        print("Usage: assign_models.py <free_models.json> <roles.json> <agents_dir>",
               file=sys.stderr)
         sys.exit(1)
 
-    models_file, roles_file, agents_dir = filtered[0], filtered[1], filtered[2]
+    models_file, roles_file, agents_dir = sys.argv[1], sys.argv[2], sys.argv[3]
 
     with open(models_file) as f:
         free_models = json.load(f)["free"]
     with open(roles_file) as f:
         roles = json.load(f)["roles"]
 
-    rankings, assigned = build_rankings(free_models, roles)
-
-    if rankings_path:
-        with open(rankings_path, "w") as f:
-            json.dump(rankings, f, indent=2)
+    assigned = assign_models(free_models, roles)
 
     role_order = ["planner", "pipeline", "debater", "implementer", "reviewer", "security-reviewer", "tester", "linter", "commit-msg"]
     print("## Model Assignments\n")
