@@ -108,13 +108,13 @@ Lists all OpenAI models from your opencode cache and lets you pick per role.
 |------|-------|----------------|
 | **pipeline** | Big Pickle | Orchestrates the 8-phase handoff |
 | **planner** | Big Pickle | Clarifies scope, writes plan |
-| **debater** | Nemotron 3 Ultra Free | Critiques plan (different model) |
+| **debater** | MiMo V2.5 Free | Critiques plan (different model) |
 | **implementer** | DeepSeek V4 Flash Free | **Only agent that writes code** |
 | **reviewer** | Big Pickle | Reviews diff for correctness |
 | **security-reviewer** | Big Pickle | Audits code for vulnerabilities |
-| **tester** | North Mini Code Free | Runs test suite |
-| **linter** | North Mini Code Free | Runs lint checks |
-| **commit-msg** | North Mini Code Free | Drafts conventional commit |
+| **tester** | Big Pickle | Runs test suite |
+| **linter** | Big Pickle | Runs lint checks |
+| **commit-msg** | Big Pickle | Drafts conventional commit |
 
 ### GPT pipeline (pipeline-gpt)
 

@@ -7,35 +7,40 @@
       "requires": ["reasoning", "tool_call"],
       "prefers": { "reasoning": 5, "structured_output": 5, "context": 2, "output": 3 },
       "min_context": 32000,
-      "min_output": 8000
+      "min_output": 8000,
+      "blocked_models": ["north-mini-code-free", "nemotron-3-ultra-free"]
     },
     "debater": {
       "description": "Good reasoner, different model from planner, big context for reviewing",
       "requires": ["reasoning", "tool_call"],
       "prefers": { "reasoning": 4, "structured_output": 3, "context": 4, "output": 2 },
       "min_context": 64000,
-      "min_output": 8000
+      "min_output": 8000,
+      "blocked_models": ["north-mini-code-free", "nemotron-3-ultra-free"]
     },
     "implementer": {
       "description": "Solid coder: needs output space and tool_call",
       "requires": ["reasoning", "tool_call"],
       "prefers": { "reasoning": 3, "tool_call": 5, "output": 5, "context": 3 },
       "min_context": 32000,
-      "min_output": 32000
+      "min_output": 32000,
+      "blocked_models": ["north-mini-code-free", "nemotron-3-ultra-free"]
     },
     "reviewer": {
       "description": "Good reasoner to review diffs (can share model with planner)",
       "requires": ["reasoning", "tool_call"],
       "prefers": { "reasoning": 5, "structured_output": 3, "context": 2, "output": 2 },
       "min_context": 32000,
-      "min_output": 8000
+      "min_output": 8000,
+      "blocked_models": ["north-mini-code-free", "nemotron-3-ultra-free"]
     },
     "security-reviewer": {
       "description": "Audits code for vulnerabilities: needs reasoning + structured_output for severity findings",
       "requires": ["reasoning", "tool_call"],
       "prefers": { "reasoning": 5, "structured_output": 5, "context": 4, "output": 3 },
       "min_context": 64000,
-      "min_output": 16000
+      "min_output": 16000,
+      "blocked_models": ["north-mini-code-free", "nemotron-3-ultra-free"]
     },
     "tester": {
       "description": "Lightweight: reads test output, routes results",
@@ -43,6 +48,7 @@
       "prefers": { "tool_call": 3, "reasoning": 1, "context": 1, "output": 1 },
       "min_context": 16000,
       "min_output": 4000,
+      "blocked_models": ["north-mini-code-free", "nemotron-3-ultra-free"],
       "size": "small"
     },
     "linter": {
@@ -51,6 +57,7 @@
       "prefers": { "tool_call": 3, "reasoning": 1, "context": 1, "output": 1 },
       "min_context": 16000,
       "min_output": 4000,
+      "blocked_models": ["north-mini-code-free", "nemotron-3-ultra-free"],
       "size": "small"
     },
     "commit-msg": {
@@ -59,6 +66,7 @@
       "prefers": { "tool_call": 3, "reasoning": 2, "context": 1, "output": 2 },
       "min_context": 16000,
       "min_output": 4000,
+      "blocked_models": ["north-mini-code-free", "nemotron-3-ultra-free"],
       "size": "small"
     },
     "pipeline": {
@@ -66,7 +74,8 @@
       "requires": ["reasoning", "tool_call"],
       "prefers": { "reasoning": 5, "tool_call": 5, "structured_output": 4, "context": 3, "output": 2 },
       "min_context": 64000,
-      "min_output": 8000
+      "min_output": 8000,
+      "blocked_models": ["north-mini-code-free", "nemotron-3-ultra-free"]
     }
   }
 }

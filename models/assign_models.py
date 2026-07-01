@@ -11,6 +11,9 @@ import sys
 
 
 def score_model(model, role):
+    if model.get("id") in role.get("blocked_models", []):
+        return -1
+
     for req in role.get("requires", []):
         if req == "reasoning" and not model.get("reasoning"):
             return -1
@@ -71,24 +74,21 @@ def assign_models(free_models, roles):
 
     for role_name in light_roles:
         role = roles[role_name]
-        candidates = sorted(
-            [m for m in free_models if m.get("tool_call")],
-            key=lambda m: m.get("context", 0) + m.get("output", 0),
-        )
         scored = []
-        for m in candidates:
+        for m in free_models:
             s = score_model(m, role)
             if s >= 0:
-                scored.append((m.get("context", 0) + m.get("output", 0), m["id"]))
-        scored.sort(key=lambda x: (x[0], x[1]))
+                scored.append((s, m["id"]))
+        scored.sort(key=lambda x: (-x[0], x[1]))
 
         best_model = None
-        for m in candidates:
-            if m["id"] in [assigned.get(r) for r in light_roles if r != role_name]:
-                best_model = m["id"]
+        eligible = {mid for _, mid in scored}
+        for preferred in ("big-pickle", assigned.get("pipeline"), assigned.get("planner"), assigned.get("reviewer")):
+            if preferred in eligible:
+                best_model = preferred
                 break
-        if not best_model and candidates:
-            best_model = candidates[0]["id"]
+        if not best_model and scored:
+            best_model = scored[0][1]
         if best_model:
             assigned[role_name] = best_model
 

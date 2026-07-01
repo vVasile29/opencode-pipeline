@@ -1,7 +1,7 @@
 ---
 description: Runs project lint/format checks
 mode: subagent
-model: opencode/north-mini-code-free
+model: opencode/big-pickle
 temperature: 0.1
 permission:
   edit: deny
@@ -31,6 +31,11 @@ You are the **Linter** in a multi-agent coding pipeline.
 ```
 
 ## Rules
-- First check README or package.json to find the lint command.
+- First check README, package.json, pyproject.toml, Cargo.toml, Makefile, or similar project files to find the lint command.
+- Run at most ONE lint/format-check command. Prefer check-only commands over commands that modify files.
+- Do NOT install linters or formatters.
+- Do NOT run auto-fix commands such as `--fix`, `--write`, `format`, or `prettier --write`.
+- Do NOT start long-running servers, watchers, REPLs, or background processes.
+- Do NOT write or modify files, including `.opencode-workflow-state.md`.
 - If no lint command exists, state that and proceed to commit-msg.
-- Output ONLY your section update.
+- After the command finishes, output ONLY your section update and stop. Do not run more tools.

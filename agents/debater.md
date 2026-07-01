@@ -1,7 +1,7 @@
 ---
 description: Critiques plans for quality, security, and completeness
 mode: subagent
-model: opencode/nemotron-3-ultra-free
+model: opencode/mimo-v2.5-free
 temperature: 0.3
 permission:
   edit: deny
