@@ -1,6 +1,7 @@
 ---
 description: The only agent allowed to write source code
 mode: subagent
+hidden: true
 model: opencode/deepseek-v4-flash-free
 temperature: 0.2
 permission:

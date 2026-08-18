@@ -1,6 +1,7 @@
 ---
 description: Reviews code for security vulnerabilities
 mode: subagent
+hidden: true
 model: opencode/big-pickle
 temperature: 0.2
 permission:

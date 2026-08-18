@@ -1,156 +1,151 @@
 #!/usr/bin/env bash
-# install.sh — Installs the OpenCode Multi-Agent Pipeline
-# Usage: curl -fsSL https://raw.githubusercontent.com/vVasile29/opencode-pipeline/master/install.sh | bash
+# Install or switch the canonical OpenCode pipeline model profile.
+# Usage: install.sh [profile]
 set -euo pipefail
 
-REPO_URL="https://raw.githubusercontent.com/vVasile29/opencode-pipeline/master"
+PROFILE="${1:-free}"
+REPO_URL="${OPENCODE_PIPELINE_REPO_URL:-https://raw.githubusercontent.com/vVasile29/opencode-pipeline/master}"
 CONFIG_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/opencode"
 AGENTS_DIR="$CONFIG_DIR/agents"
-SCRIPTS_DIR="$CONFIG_DIR/scripts"
+PLUGINS_DIR="$CONFIG_DIR/plugins"
 MANIFEST="$CONFIG_DIR/.opencode-pipeline-manifest.json"
-BACKUP="$CONFIG_DIR/.opencode-pipeline-config-backup.json"
-CONFIG_FILE="$CONFIG_DIR/opencode.json"
-DEFAULT_STATE="$CONFIG_DIR/.opencode-pipeline-default-state.json"
-GITIGNORE_MARKER="$CONFIG_DIR/.opencode-pipeline-gitignore-owned"
-BIN_DIR="${HOME}/.local/bin"
+LEGACY_GPT_MANIFEST="$CONFIG_DIR/.opencode-pipeline-gpt-manifest.json"
+ROLES=(pipeline planner debater implementer reviewer security-reviewer tester linter commit-msg)
 
-AGENTS=("pipeline.md" "planner.md" "debater.md" "implementer.md" "reviewer.md" "security-reviewer.md" "tester.md" "linter.md" "commit-msg.md")
-SCRIPTS=("select-models.sh" "auto-select-models.sh")
-MODEL_FILES=("assign_models.py" "roles.json")
-
-echo "==> Installing OpenCode Multi-Agent Pipeline"
-echo "    Target: $CONFIG_DIR"
-echo ""
-
-mkdir -p "$AGENTS_DIR" "$SCRIPTS_DIR/models" "$BIN_DIR"
-
-# 1. Download agent files
-echo "==> Downloading agents..."
-INSTALLED_FILES=""
-for f in "${AGENTS[@]}"; do
-  curl -fsSL "$REPO_URL/agents/$f" -o "$AGENTS_DIR/$f"
-  INSTALLED_FILES="$INSTALLED_FILES\"$f\","
-  echo "    ✓ agents/$f"
-done
-INSTALLED_FILES="[${INSTALLED_FILES%,}]"
-
-# 2. Download scripts
-echo "==> Downloading scripts..."
-INSTALLED_SCRIPTS=""
-for script in "${SCRIPTS[@]}"; do
-  curl -fsSL "$REPO_URL/$script" -o "$SCRIPTS_DIR/$script"
-  chmod +x "$SCRIPTS_DIR/$script"
-  INSTALLED_SCRIPTS="$INSTALLED_SCRIPTS\"$script\","
-  echo "    ✓ scripts/$script"
-done
-INSTALLED_SCRIPTS="[${INSTALLED_SCRIPTS%,}]"
-
-# 3. Download model data files
-echo "==> Downloading model data..."
-for f in "${MODEL_FILES[@]}"; do
-  curl -fsSL "$REPO_URL/models/$f" -o "$SCRIPTS_DIR/models/$f"
-done
-echo "    ✓ models/ (data files)"
-
-# 4. Symlinks — currently none
-echo "==> Symlinks (none needed)"
-
-# 5. Merge default agent and reserve pipeline role agents for orchestrators
-echo "==> Configuring pipeline permissions..."
-python3 <<PYEOF
-import json, os, shutil
-
-config_file = "$CONFIG_FILE"
-backup_file = "$BACKUP"
-default_state_file = "$DEFAULT_STATE"
-pipeline_agent_patterns = (
-    'planner*', 'debater*', 'implementer*', 'reviewer*',
-    'security-reviewer*', 'tester*', 'linter*', 'commit-msg*'
-)
-
-if os.path.exists(config_file):
-    with open(config_file) as f:
-        config = json.load(f)
-    manifest_version = 0
-    if os.path.exists("$MANIFEST"):
-        with open("$MANIFEST") as f:
-            manifest_version = json.load(f).get('version', 1)
-    if not os.path.exists(backup_file) and manifest_version < 2 and not os.path.exists("$CONFIG_DIR/.opencode-pipeline-gpt-manifest.json"):
-        shutil.copy2(config_file, backup_file)
-        print('    backed up existing config')
-else:
-    config = {}
-
-with open(default_state_file, 'w') as f:
-    json.dump({'present': 'default_agent' in config, 'value': config.get('default_agent')}, f)
-config['default_agent'] = 'pipeline'
-
-permission = config.get('permission', {})
-if isinstance(permission, str):
-    permission = {'*': permission}
-task = permission.get('task', {})
-if isinstance(task, str):
-    task = {'*': task}
-# Role denies follow broad rules because the last matching permission wins.
-for pattern in pipeline_agent_patterns:
-    task.pop(pattern, None)
-    task[pattern] = 'deny'
-permission['task'] = task
-config['permission'] = permission
-
-with open(config_file, 'w') as f:
-    json.dump(config, f, indent=2)
-    f.write('\n')
-
-print('    default_agent set to pipeline')
-print('    pipeline role agents reserved for pipeline orchestrators')
-PYEOF
-
-# 6. Write manifest
-echo "==> Writing manifest..."
-python3 <<PYEOF
-import json, datetime, os
-
-with open("$DEFAULT_STATE") as f:
-    previous_default_agent = json.load(f)
-
-manifest = {
-    "version": 2,
-    "installed_at": datetime.datetime.now(datetime.timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ'),
-    "files": $INSTALLED_FILES,
-    "scripts": $INSTALLED_SCRIPTS,
-    "config_backup": "$BACKUP",
-    "previous_default_agent": previous_default_agent
-}
-
-with open("$MANIFEST", 'w') as f:
-    json.dump(manifest, f, indent=2)
-
-os.remove("$DEFAULT_STATE")
-
-print('    \u2713 manifest written')
-PYEOF
-
-# 7. Add state file to global gitignore
-GITIGNORE="$CONFIG_DIR/.gitignore"
-if ! grep -q 'opencode-workflow-state' "$GITIGNORE" 2>/dev/null; then
-  echo ".opencode-workflow-state.md" >> "$GITIGNORE" 2>/dev/null || true
-  touch "$GITIGNORE_MARKER"
-  echo "==> Added .opencode-workflow-state.md to global gitignore"
+if [[ ! "$PROFILE" =~ ^[a-z0-9][a-z0-9-]*$ ]]; then
+  echo "Invalid profile name: $PROFILE" >&2
+  exit 1
 fi
 
-echo ""
-echo "==> ✓ Pipeline installed!"
-echo ""
-echo "    Run 'opencode' in any project — pipeline is your default agent."
-echo ""
-echo "    To (re-)assign models:"
-echo "      $SCRIPTS_DIR/auto-select-models.sh    (automatic, capability-scored)"
-echo "      $SCRIPTS_DIR/select-models.sh          (interactive, fzf)"
-echo ""
-echo "    GPT variant available — install a paid pipeline alongside:"
-echo "      curl -fsSL https://raw.githubusercontent.com/vVasile29/opencode-pipeline/master/install-gpt.sh | bash"
-echo "    Switch between free and GPT via Tab key in the opencode TUI."
-echo ""
-echo "    To uninstall:"
-echo "      curl -fsSL https://raw.githubusercontent.com/vVasile29/opencode-pipeline/master/uninstall.sh | bash"
+if [[ -f "$LEGACY_GPT_MANIFEST" ]]; then
+  echo "A legacy pipeline-gpt installation is still present." >&2
+  echo "Uninstall it before switching to the canonical pipeline." >&2
+  exit 1
+fi
+
+STAGE_DIR=$(mktemp -d)
+trap 'rm -rf "$STAGE_DIR"' EXIT
+mkdir -p "$STAGE_DIR/agents"
+
+echo "==> Downloading canonical pipeline agents"
+for role in "${ROLES[@]}"; do
+  curl -fsSL "$REPO_URL/agents/$role.md" -o "$STAGE_DIR/agents/$role.md"
+done
+curl -fsSL "$REPO_URL/models/profiles/$PROFILE.json" -o "$STAGE_DIR/profile.json"
+curl -fsSL "$REPO_URL/plugins/opencode-pipeline-permissions.js" -o "$STAGE_DIR/permissions.js"
+
+python3 - "$STAGE_DIR" <<'PYEOF'
+import json
+import re
+import sys
+from pathlib import Path
+
+stage = Path(sys.argv[1])
+roles = (
+    "pipeline", "planner", "debater", "implementer", "reviewer",
+    "security-reviewer", "tester", "linter", "commit-msg",
+)
+
+with (stage / "profile.json").open() as f:
+    profile = json.load(f)
+
+agents = profile.get("agents")
+if not isinstance(agents, dict) or set(agents) != set(roles):
+    raise SystemExit("Profile must define exactly the nine canonical pipeline agents")
+
+for role in roles:
+    settings = agents[role]
+    model = settings.get("model") if isinstance(settings, dict) else None
+    variant = settings.get("variant") if isinstance(settings, dict) else None
+    if not isinstance(model, str) or not re.fullmatch(r"[A-Za-z0-9._:/-]+", model):
+        raise SystemExit(f"Invalid model for {role}: {model!r}")
+    if variant is not None and (not isinstance(variant, str) or not re.fullmatch(r"[A-Za-z0-9._-]+", variant)):
+        raise SystemExit(f"Invalid variant for {role}: {variant!r}")
+
+    path = stage / "agents" / f"{role}.md"
+    content = path.read_text()
+    content, count = re.subn(r"^model:.*$", f"model: {model}", content, count=1, flags=re.MULTILINE)
+    if count != 1:
+        raise SystemExit(f"Missing model field in {role}.md")
+    content = re.sub(r"^variant:.*\n", "", content, flags=re.MULTILINE)
+    if variant:
+        content = re.sub(r"^(model:.*)$", rf"\1\nvariant: {variant}", content, count=1, flags=re.MULTILINE)
+    path.write_text(content)
+PYEOF
+
+python3 - "$CONFIG_DIR" "$MANIFEST" <<'PYEOF'
+import hashlib
+import json
+import sys
+from pathlib import Path
+
+config_dir = Path(sys.argv[1])
+manifest_path = Path(sys.argv[2])
+targets = [f"agents/{role}.md" for role in (
+    "pipeline", "planner", "debater", "implementer", "reviewer",
+    "security-reviewer", "tester", "linter", "commit-msg",
+)] + ["plugins/opencode-pipeline-permissions.js"]
+
+owned = {}
+if manifest_path.exists():
+    with manifest_path.open() as f:
+        manifest = json.load(f)
+    if manifest.get("version") != 3 or not isinstance(manifest.get("files"), dict):
+        raise SystemExit(
+            "A legacy pipeline installation is present. Run its matching uninstaller before upgrading."
+        )
+    owned = manifest["files"]
+
+for relative in targets:
+    path = config_dir / relative
+    if not path.exists():
+        continue
+    expected = owned.get(relative)
+    if expected is None:
+        raise SystemExit(f"Refusing to overwrite unowned file: {path}")
+    actual = hashlib.sha256(path.read_bytes()).hexdigest()
+    if actual != expected:
+        raise SystemExit(f"Refusing to overwrite modified pipeline file: {path}")
+PYEOF
+
+mkdir -p "$AGENTS_DIR" "$PLUGINS_DIR"
+for role in "${ROLES[@]}"; do
+  install -m 0644 "$STAGE_DIR/agents/$role.md" "$AGENTS_DIR/$role.md"
+done
+install -m 0644 "$STAGE_DIR/permissions.js" "$PLUGINS_DIR/opencode-pipeline-permissions.js"
+
+python3 - "$CONFIG_DIR" "$MANIFEST" "$PROFILE" <<'PYEOF'
+import datetime
+import hashlib
+import json
+import os
+import sys
+from pathlib import Path
+
+config_dir = Path(sys.argv[1])
+manifest_path = Path(sys.argv[2])
+profile = sys.argv[3]
+files = [f"agents/{role}.md" for role in (
+    "pipeline", "planner", "debater", "implementer", "reviewer",
+    "security-reviewer", "tester", "linter", "commit-msg",
+)] + ["plugins/opencode-pipeline-permissions.js"]
+
+manifest = {
+    "version": 3,
+    "profile": profile,
+    "installed_at": datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+    "files": {
+        relative: hashlib.sha256((config_dir / relative).read_bytes()).hexdigest()
+        for relative in files
+    },
+}
+temporary = manifest_path.with_suffix(".tmp")
+with temporary.open("w") as f:
+    json.dump(manifest, f, indent=2)
+    f.write("\n")
+os.replace(temporary, manifest_path)
+PYEOF
+
+echo "==> Pipeline installed with the '$PROFILE' profile"
+echo "    Restart OpenCode, press Tab, and select 'pipeline'."
+echo "    Re-run this installer with another profile to switch models."
