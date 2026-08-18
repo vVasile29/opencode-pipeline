@@ -15,6 +15,7 @@ export default async () => ({
       typeof config.permission === "string" ? { "*": config.permission } : (config.permission ?? {})
     const task = typeof permission.task === "string" ? { "*": permission.task } : (permission.task ?? {})
 
+    for (const role of roles) delete task[role]
     for (const role of roles) task[role] = "deny"
 
     permission.task = task
