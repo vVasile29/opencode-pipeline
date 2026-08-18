@@ -96,8 +96,8 @@ Lists all OpenAI models from your opencode cache and lets you pick per role.
 **Or edit agent files directly:**
 ```bash
 # Edit model field in any agent file
-~/.config/opencode/agents/planner-gpt.md    → model: openai/gpt-5.5
-~/.config/opencode/agents/tester-gpt.md     → model: openai/gpt-5.4-mini
+~/.config/opencode/agents/planner-gpt.md    → model: openai/gpt-5.6-sol
+~/.config/opencode/agents/tester-gpt.md     → model: openai/gpt-5.6-luna
 ```
 
 ---
@@ -122,15 +122,15 @@ Lists all OpenAI models from your opencode cache and lets you pick per role.
 
 | Role | Model | Reasoning Effort | Responsibility |
 |------|-------|-----------------|----------------|
-| **pipeline-gpt** | GPT-5.5 | medium | Orchestrates the 8-phase handoff |
-| **planner-gpt** | GPT-5.5 | high | Clarifies scope, writes plan |
-| **debater-gpt** | GPT-5.5 | medium | Critiques plan (diverse perspective) |
-| **implementer-gpt** | GPT-5.5 | medium | **Only agent that writes code** |
-| **reviewer-gpt** | GPT-5.5 | medium | Reviews diff for correctness |
-| **security-reviewer-gpt** | GPT-5.5 | high | Audits code for vulnerabilities |
-| **tester-gpt** | GPT-5.4 mini | low | Runs test suite |
-| **linter-gpt** | GPT-5.4 mini | low | Runs lint checks |
-| **commit-msg-gpt** | GPT-5.4 mini | low | Drafts conventional commit |
+| **pipeline-gpt** | GPT-5.6 Terra | medium | Orchestrates the 8-phase handoff |
+| **planner-gpt** | GPT-5.6 Sol | high | Clarifies scope, writes plan |
+| **debater-gpt** | GPT-5.6 Terra | medium | Critiques plan (diverse perspective) |
+| **implementer-gpt** | GPT-5.6 Sol | medium | **Only agent that writes code** |
+| **reviewer-gpt** | GPT-5.6 Terra | medium | Reviews diff for correctness |
+| **security-reviewer-gpt** | GPT-5.6 Sol | high | Audits code for vulnerabilities |
+| **tester-gpt** | GPT-5.6 Luna | low | Runs test suite |
+| **linter-gpt** | GPT-5.6 Luna | low | Runs lint checks |
+| **commit-msg-gpt** | GPT-5.6 Luna | low | Drafts conventional commit |
 
 ---
 

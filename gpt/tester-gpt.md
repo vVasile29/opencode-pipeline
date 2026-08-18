@@ -1,7 +1,7 @@
 ---
 description: Runs project tests and reports results (GPT)
 mode: subagent
-model: openai/gpt-5.4-mini
+model: openai/gpt-5.6-luna
 temperature: 0.1
 options:
   reasoning_effort: low

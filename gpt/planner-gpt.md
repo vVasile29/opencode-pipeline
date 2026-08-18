@@ -1,7 +1,7 @@
 ---
 description: Clarifies scope and creates a detailed implementation plan (GPT)
 mode: subagent
-model: openai/gpt-5.5
+model: openai/gpt-5.6-sol
 temperature: 0.1
 options:
   reasoning_effort: high

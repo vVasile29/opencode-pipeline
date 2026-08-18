@@ -1,7 +1,7 @@
 ---
 description: Drafts a conventional commit message from the diff (GPT)
 mode: subagent
-model: openai/gpt-5.4-mini
+model: openai/gpt-5.6-luna
 temperature: 0.2
 options:
   reasoning_effort: low

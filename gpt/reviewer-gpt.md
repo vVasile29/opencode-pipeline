@@ -1,7 +1,7 @@
 ---
 description: Reviews diffs for quality and correctness (GPT)
 mode: subagent
-model: openai/gpt-5.5
+model: openai/gpt-5.6-terra
 temperature: 0.1
 options:
   reasoning_effort: medium

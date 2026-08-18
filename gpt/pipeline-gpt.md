@@ -1,7 +1,7 @@
 ---
 description: GPT-powered orchestrator for the full 8-agent coding pipeline
 mode: primary
-model: openai/gpt-5.5
+model: openai/gpt-5.6-terra
 temperature: 0.1
 options:
   reasoning_effort: medium

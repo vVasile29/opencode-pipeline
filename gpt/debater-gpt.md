@@ -1,7 +1,7 @@
 ---
 description: Critiques plans for quality, security, and completeness (GPT)
 mode: subagent
-model: openai/gpt-5.5
+model: openai/gpt-5.6-terra
 temperature: 0.3
 options:
   reasoning_effort: medium

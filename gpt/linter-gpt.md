@@ -1,7 +1,7 @@
 ---
 description: Runs project lint/format checks (GPT)
 mode: subagent
-model: openai/gpt-5.4-mini
+model: openai/gpt-5.6-luna
 temperature: 0.1
 options:
   reasoning_effort: low
