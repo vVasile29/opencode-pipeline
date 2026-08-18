@@ -192,6 +192,30 @@ process.stdout.write(JSON.stringify(configs))
         self.run_install("gpt")
         self.assert_profile("gpt")
 
+    def test_fresh_qwen3_8_27b_profile_installation(self):
+        self.run_install("qwen3-8-27b")
+        self.assert_profile("qwen3-8-27b")
+        profile = json.loads((ROOT / "models" / "profiles" / "qwen3-8-27b.json").read_text())
+        self.assertEqual(
+            {
+                "pipeline": "medium",
+                "planner": "high",
+                "debater": "high",
+                "implementer": "high",
+                "reviewer": "high",
+                "security-reviewer": "high",
+                "tester": "medium",
+                "linter": "low",
+                "commit-msg": "low",
+            },
+            {agent: settings["variant"] for agent, settings in profile["agents"].items()},
+        )
+
+    def test_switching_from_qwen_removes_variant(self):
+        self.run_install("qwen3-8-27b")
+        self.run_install("free")
+        self.assert_profile("free")
+
     def test_profile_switching_in_both_directions(self):
         self.run_install("free")
         free_snapshot = {

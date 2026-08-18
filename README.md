@@ -24,23 +24,72 @@ Install the GPT-5.6 profile:
 curl -fsSL https://raw.githubusercontent.com/vVasile29/opencode-pipeline/master/install.sh | bash -s -- gpt
 ```
 
+Install the local Ollama Qwen 3.8 27B profile:
+
+```bash
+ollama pull qwen3.8:27b
+curl -fsSL https://raw.githubusercontent.com/vVasile29/opencode-pipeline/master/install.sh | bash -s -- qwen3-8-27b
+```
+
+The Qwen profile expects OpenCode to expose the model as `ollama/qwen3.8:27b` with `low`, `medium`, and `high` variants. If Ollama is not already configured as an OpenCode provider, add this to your global `~/.config/opencode/opencode.json` (merging it with any existing configuration):
+
+```json
+{
+  "$schema": "https://opencode.ai/config.json",
+  "provider": {
+    "ollama": {
+      "npm": "@ai-sdk/openai-compatible",
+      "name": "Ollama (local)",
+      "options": {
+        "baseURL": "http://localhost:11434/v1"
+      },
+      "models": {
+        "qwen3.8:27b": {
+          "name": "Qwen 3.8 27B (local)",
+          "reasoning": true,
+          "limit": {
+            "context": 262144,
+            "output": 65536
+          },
+          "variants": {
+            "low": {
+              "reasoningEffort": "low"
+            },
+            "medium": {
+              "reasoningEffort": "medium"
+            },
+            "high": {
+              "reasoningEffort": "high"
+            }
+          }
+        }
+      }
+    }
+  }
+}
+```
+
+OpenCode recommends at least a 64K context window for local models. Configure Ollama accordingly before launching OpenCode, for example with `OLLAMA_CONTEXT_LENGTH=65536 ollama serve`.
+
+The profile selects reasoning variants by role: high for planning, debate, implementation, review, and security review; medium for orchestration and testing; and low for linting and commit messages. OpenCode resolves each variant to its configured `reasoningEffort` and passes it to Ollama as `reasoning_effort`.
+
 Restart OpenCode after installation, press **Tab**, and select `pipeline`. The installer does not change `default_agent` or rewrite `opencode.json`/`opencode.jsonc`.
 
 Re-run the same command with a different profile to switch models. The canonical agent names stay unchanged, and OpenCode must be restarted after every profile switch.
 
 ## Profiles
 
-| Role | Free profile | GPT profile |
-| --- | --- | --- |
-| `pipeline` | Big Pickle | GPT-5.6 Terra, medium |
-| `planner` | Big Pickle | GPT-5.6 Sol, high |
-| `debater` | MiMo V2.5 Free | GPT-5.6 Terra, medium |
-| `implementer` | DeepSeek V4 Flash Free | GPT-5.6 Sol, medium |
-| `reviewer` | Big Pickle | GPT-5.6 Terra, medium |
-| `security-reviewer` | Big Pickle | GPT-5.6 Sol, high |
-| `tester` | Big Pickle | GPT-5.6 Luna, low |
-| `linter` | Big Pickle | GPT-5.6 Luna, low |
-| `commit-msg` | Big Pickle | GPT-5.6 Luna, low |
+| Role | Free profile | GPT profile | Qwen 3.8 27B profile |
+| --- | --- | --- | --- |
+| `pipeline` | Big Pickle | GPT-5.6 Terra, medium | Qwen 3.8 27B (Ollama), medium |
+| `planner` | Big Pickle | GPT-5.6 Sol, high | Qwen 3.8 27B (Ollama), high |
+| `debater` | MiMo V2.5 Free | GPT-5.6 Terra, medium | Qwen 3.8 27B (Ollama), high |
+| `implementer` | DeepSeek V4 Flash Free | GPT-5.6 Sol, medium | Qwen 3.8 27B (Ollama), high |
+| `reviewer` | Big Pickle | GPT-5.6 Terra, medium | Qwen 3.8 27B (Ollama), high |
+| `security-reviewer` | Big Pickle | GPT-5.6 Sol, high | Qwen 3.8 27B (Ollama), high |
+| `tester` | Big Pickle | GPT-5.6 Luna, low | Qwen 3.8 27B (Ollama), medium |
+| `linter` | Big Pickle | GPT-5.6 Luna, low | Qwen 3.8 27B (Ollama), low |
+| `commit-msg` | Big Pickle | GPT-5.6 Luna, low | Qwen 3.8 27B (Ollama), low |
 
 Profiles live under `models/profiles/`. Adding another provider, such as Qwen, requires only another profile; it does not require another set of agents.
 
@@ -118,7 +167,8 @@ opencode-pipeline/
 ├── agents/                         canonical pipeline and role prompts
 ├── models/profiles/
 │   ├── free.json                   free-model assignments
-│   └── gpt.json                    GPT-5.6 assignments
+│   ├── gpt.json                    GPT-5.6 assignments
+│   └── qwen3-8-27b.json            local Ollama Qwen 3.8 27B assignments
 ├── plugins/
 │   └── opencode-pipeline-permissions.js
 ├── tests/
