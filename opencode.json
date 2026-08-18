@@ -4,6 +4,16 @@
   "permission": {
     "edit": "ask",
     "bash": "ask",
-    "external_directory": "ask"
+    "external_directory": "ask",
+    "task": {
+      "planner*": "deny",
+      "debater*": "deny",
+      "implementer*": "deny",
+      "reviewer*": "deny",
+      "security-reviewer*": "deny",
+      "tester*": "deny",
+      "linter*": "deny",
+      "commit-msg*": "deny"
+    }
   }
 }

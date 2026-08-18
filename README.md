@@ -11,6 +11,8 @@ A reusable multi-agent coding pipeline for [OpenCode](https://opencode.ai). Inst
 
 Both install side-by-side. Switch between them in the opencode TUI via the **Tab key**.
 
+The installers add global `task` deny rules for pipeline role names such as `planner*` and `implementer*`. The bundled pipeline orchestrators override those rules for their own role agents, keeping normal task spawning isolated regardless of the assigned model or name suffix. Explicit per-agent permission overrides and direct manual agent selection still take precedence.
+
 **Phases (both pipelines):** clarify(planner) → review-plan(debater) → implement(implementer) → review-code(reviewer) → security-review(security-reviewer) → test(tester) → lint(linter) → commit-msg(commit-msg)
 
 Only the **implementer** can touch source files. All other agents are read-only — the debater critiques plans, the reviewer inspects diffs, the tester runs tests, etc.

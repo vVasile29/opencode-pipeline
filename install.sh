@@ -10,6 +10,8 @@ SCRIPTS_DIR="$CONFIG_DIR/scripts"
 MANIFEST="$CONFIG_DIR/.opencode-pipeline-manifest.json"
 BACKUP="$CONFIG_DIR/.opencode-pipeline-config-backup.json"
 CONFIG_FILE="$CONFIG_DIR/opencode.json"
+DEFAULT_STATE="$CONFIG_DIR/.opencode-pipeline-default-state.json"
+GITIGNORE_MARKER="$CONFIG_DIR/.opencode-pipeline-gitignore-owned"
 BIN_DIR="${HOME}/.local/bin"
 
 AGENTS=("pipeline.md" "planner.md" "debater.md" "implementer.md" "reviewer.md" "security-reviewer.md" "tester.md" "linter.md" "commit-msg.md")
@@ -53,57 +55,87 @@ echo "    ✓ models/ (data files)"
 # 4. Symlinks — currently none
 echo "==> Symlinks (none needed)"
 
-# 5. Backup existing config
-if [[ -f "$CONFIG_FILE" ]]; then
-  cp "$CONFIG_FILE" "$BACKUP"
-  echo "==> Backed up existing config → $(basename "$BACKUP")"
-fi
-
-# 6. Merge default_agent into opencode.json
-echo "==> Setting default_agent to 'pipeline'..."
+# 5. Merge default agent and reserve pipeline role agents for orchestrators
+echo "==> Configuring pipeline permissions..."
 python3 <<PYEOF
-import json, os
+import json, os, shutil
 
 config_file = "$CONFIG_FILE"
+backup_file = "$BACKUP"
+default_state_file = "$DEFAULT_STATE"
+pipeline_agent_patterns = (
+    'planner*', 'debater*', 'implementer*', 'reviewer*',
+    'security-reviewer*', 'tester*', 'linter*', 'commit-msg*'
+)
 
 if os.path.exists(config_file):
     with open(config_file) as f:
         config = json.load(f)
+    manifest_version = 0
+    if os.path.exists("$MANIFEST"):
+        with open("$MANIFEST") as f:
+            manifest_version = json.load(f).get('version', 1)
+    if not os.path.exists(backup_file) and manifest_version < 2 and not os.path.exists("$CONFIG_DIR/.opencode-pipeline-gpt-manifest.json"):
+        shutil.copy2(config_file, backup_file)
+        print('    backed up existing config')
 else:
     config = {}
 
+with open(default_state_file, 'w') as f:
+    json.dump({'present': 'default_agent' in config, 'value': config.get('default_agent')}, f)
 config['default_agent'] = 'pipeline'
+
+permission = config.get('permission', {})
+if isinstance(permission, str):
+    permission = {'*': permission}
+task = permission.get('task', {})
+if isinstance(task, str):
+    task = {'*': task}
+# Role denies follow broad rules because the last matching permission wins.
+for pattern in pipeline_agent_patterns:
+    task.pop(pattern, None)
+    task[pattern] = 'deny'
+permission['task'] = task
+config['permission'] = permission
 
 with open(config_file, 'w') as f:
     json.dump(config, f, indent=2)
     f.write('\n')
 
 print('    default_agent set to pipeline')
+print('    pipeline role agents reserved for pipeline orchestrators')
 PYEOF
 
-# 7. Write manifest
+# 6. Write manifest
 echo "==> Writing manifest..."
 python3 <<PYEOF
-import json, datetime
+import json, datetime, os
+
+with open("$DEFAULT_STATE") as f:
+    previous_default_agent = json.load(f)
 
 manifest = {
-    "version": 1,
+    "version": 2,
     "installed_at": datetime.datetime.now(datetime.timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ'),
     "files": $INSTALLED_FILES,
     "scripts": $INSTALLED_SCRIPTS,
-    "config_backup": "$BACKUP"
+    "config_backup": "$BACKUP",
+    "previous_default_agent": previous_default_agent
 }
 
 with open("$MANIFEST", 'w') as f:
     json.dump(manifest, f, indent=2)
 
+os.remove("$DEFAULT_STATE")
+
 print('    \u2713 manifest written')
 PYEOF
 
-# 8. Add state file to global gitignore
+# 7. Add state file to global gitignore
 GITIGNORE="$CONFIG_DIR/.gitignore"
 if ! grep -q 'opencode-workflow-state' "$GITIGNORE" 2>/dev/null; then
   echo ".opencode-workflow-state.md" >> "$GITIGNORE" 2>/dev/null || true
+  touch "$GITIGNORE_MARKER"
   echo "==> Added .opencode-workflow-state.md to global gitignore"
 fi
 
