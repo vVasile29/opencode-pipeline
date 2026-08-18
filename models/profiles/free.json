@@ -1,0 +1,15 @@
+{
+  "name": "free",
+  "description": "OpenCode Zen free-model defaults",
+  "agents": {
+    "pipeline": { "model": "opencode/big-pickle" },
+    "planner": { "model": "opencode/big-pickle" },
+    "debater": { "model": "opencode/mimo-v2.5-free" },
+    "implementer": { "model": "opencode/deepseek-v4-flash-free" },
+    "reviewer": { "model": "opencode/big-pickle" },
+    "security-reviewer": { "model": "opencode/big-pickle" },
+    "tester": { "model": "opencode/big-pickle" },
+    "linter": { "model": "opencode/big-pickle" },
+    "commit-msg": { "model": "opencode/big-pickle" }
+  }
+}

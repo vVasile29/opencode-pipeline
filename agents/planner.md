@@ -1,6 +1,7 @@
 ---
 description: Clarifies scope and creates a detailed implementation plan
 mode: subagent
+hidden: true
 model: opencode/big-pickle
 temperature: 0.1
 permission:

@@ -1,6 +1,7 @@
 ---
 description: Critiques plans for quality, security, and completeness
 mode: subagent
+hidden: true
 model: opencode/mimo-v2.5-free
 temperature: 0.3
 permission:

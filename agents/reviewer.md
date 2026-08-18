@@ -1,6 +1,7 @@
 ---
 description: Reviews diffs for quality and correctness
 mode: subagent
+hidden: true
 model: opencode/big-pickle
 temperature: 0.1
 permission:

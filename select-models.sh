@@ -1,133 +1,111 @@
 #!/usr/bin/env bash
-# select-models.sh — Interactive model selector for the pipeline
-# Uses fzf (preferred) or numbered prompt to pick models per role
+# Interactively assign any OpenCode model to the canonical pipeline roles.
 set -euo pipefail
 
-CACHE_FILE="${HOME}/.cache/opencode/models.json"
-AGENTS_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/opencode/agents"
+CONFIG_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/opencode"
+AGENTS_DIR="$CONFIG_DIR/agents"
+MANIFEST="$CONFIG_DIR/.opencode-pipeline-manifest.json"
+ROLES=(pipeline planner debater implementer reviewer security-reviewer tester linter commit-msg)
 
-echo "==> Interactive Model Selector"
-echo ""
-
-if [[ ! -f "$CACHE_FILE" ]]; then
-  echo "    ✗ models cache not found at $CACHE_FILE"
-  echo "    Run 'opencode' once to populate it."
+if [[ ! -f "$MANIFEST" ]]; then
+  echo "Install the canonical pipeline before selecting models." >&2
   exit 1
 fi
 
-# Extract free models into a selectable list
-python3 <<PYEOF
+python3 - "$CONFIG_DIR" "$MANIFEST" <<'PYEOF'
+import hashlib
 import json
+import sys
+from pathlib import Path
 
-with open("$CACHE_FILE") as f:
-    data = json.load(f)
-
-opencode = data.get('opencode', {})
-models = opencode.get('models', {})
-
-free = []
-for mid, m in models.items():
-    if not isinstance(m, dict):
-        continue
-    cost = m.get('cost', {})
-    status = m.get('status', '')
-    if isinstance(cost, dict) and cost.get('input', 1) == 0 and status != 'deprecated':
-        free.append({
-            "id": mid,
-            "name": m.get('name', mid),
-            "reasoning": m.get('reasoning', False),
-            "tool_call": m.get('tool_call', False),
-            "structured_output": m.get('structured_output', False),
-            "context": m.get('limit', {}).get('context', 0),
-            "output": m.get('limit', {}).get('output', 0),
-        })
-
-# Write free models list for fzf
-with open("/tmp/opencode-free-models.json", 'w') as f:
-    json.dump(free, f, indent=2)
-
-print(f"Found {len(free)} free models")
+config_dir = Path(sys.argv[1])
+manifest_path = Path(sys.argv[2])
+with manifest_path.open() as f:
+    manifest = json.load(f)
+if manifest.get("version") != 3 or not isinstance(manifest.get("files"), dict):
+    raise SystemExit("Unsupported pipeline manifest")
+for relative, expected_hash in manifest["files"].items():
+    path = config_dir / relative
+    if not path.exists():
+        raise SystemExit(f"Missing installed pipeline file: {path}")
+    actual_hash = hashlib.sha256(path.read_bytes()).hexdigest()
+    if actual_hash != expected_hash:
+        raise SystemExit(f"Refusing to modify changed pipeline file: {path}")
 PYEOF
 
-# Determine picker: fzf > numbered prompt
+mapfile -t MODELS < <(opencode models)
+if [[ ${#MODELS[@]} -eq 0 ]]; then
+  echo "No OpenCode models are available." >&2
+  exit 1
+fi
+
 USE_FZF=false
 if command -v fzf &>/dev/null; then
   USE_FZF=true
 fi
 
-ROLES=("pipeline" "planner" "debater" "implementer" "reviewer" "tester" "linter" "commit-msg")
-
 for role in "${ROLES[@]}"; do
-  AGENT_FILE="$AGENTS_DIR/$role.md"
-  if [[ ! -f "$AGENT_FILE" ]]; then
-    echo "    ⚠ $role.md not found — skipping"
-    continue
-  fi
-
-  # Read current model
-  CURRENT=$(grep -E '^model: ' "$AGENT_FILE" | sed 's/^model: opencode\///')
+  agent_file="$AGENTS_DIR/$role.md"
+  current=$(sed -n 's/^model: //p' "$agent_file")
   echo ""
-  echo "── $role ── (current: $CURRENT)"
+  echo "-- $role -- (current: $current)"
 
   if $USE_FZF; then
-    SELECTED=$(python3 -c "
-import json
-with open('/tmp/opencode-free-models.json') as f:
-    models = json.load(f)
-for m in models:
-    tags = []
-    if m['reasoning']: tags.append('reasoning')
-    if m['tool_call']: tags.append('tool_call')
-    if m['structured_output']: tags.append('structured')
-    ctx = f\"{m['context']//1000}k\" if m['context'] else '?'
-    out = f\"{m['output']//1000}k\" if m['output'] else '?'
-    print(f\"{m['id']:40s} {m['name']:35s} {','.join(tags):20s} ctx={ctx} out={out}\")
-" | fzf --prompt="Model for $role > " --height=20 | awk '{print $1}')
-
-    if [[ -z "$SELECTED" ]]; then
-      echo "    → skipped"
-      continue
-    fi
+    selected=$(printf '%s\n' "${MODELS[@]}" | fzf --prompt="Model for $role > " --height=20) || true
+    [[ -n "$selected" ]] || continue
   else
-    echo "  Available models:"
-    python3 -c "
-import json
-with open('/tmp/opencode-free-models.json') as f:
-    models = json.load(f)
-for i, m in enumerate(models, 1):
-    tags = []
-    if m['reasoning']: tags.append('reasoning')
-    if m['tool_call']: tags.append('tool_call')
-    if m['structured_output']: tags.append('structured')
-    ctx = f\"{m['context']//1000}k\" if m['context'] else '?'
-    print(f\"  {i:2d}. {m['id']:35s} [{','.join(tags)}] ctx={ctx}\")
-"
-    read -p "  Enter number (or 0 to skip): " choice
-    if [[ "$choice" -eq 0 || -z "$choice" ]]; then
-      echo "    → skipped"
-      continue
-    fi
-    SELECTED=$(python3 -c "
-import json
-with open('/tmp/opencode-free-models.json') as f:
-    models = json.load(f)
-idx = int('$choice') - 1
-if 0 <= idx < len(models):
-    print(models[idx]['id'])
-")
-    if [[ -z "$SELECTED" ]]; then
-      echo "    → invalid choice, skipped"
-      continue
-    fi
+    printf '  %2d. %s\n' 0 "keep current"
+    for i in "${!MODELS[@]}"; do
+      printf '  %2d. %s\n' "$((i + 1))" "${MODELS[$i]}"
+    done
+    read -r -p "  Enter number: " choice
+    [[ "$choice" =~ ^[0-9]+$ ]] || { echo "Invalid choice" >&2; exit 1; }
+    [[ "$choice" -ne 0 ]] || continue
+    ((choice <= ${#MODELS[@]})) || { echo "Invalid choice" >&2; exit 1; }
+    selected="${MODELS[$((choice - 1))]}"
   fi
 
-  # Update agent file
-  sed -i "s/^model: opencode\/.*$/model: opencode\/$SELECTED/" "$AGENT_FILE"
-  echo "    ✓ $role → $SELECTED"
+  python3 - "$agent_file" "$selected" <<'PYEOF'
+import re
+import sys
+from pathlib import Path
+
+path = Path(sys.argv[1])
+model = sys.argv[2]
+content = path.read_text()
+content, count = re.subn(r"^model:.*$", f"model: {model}", content, count=1, flags=re.MULTILINE)
+if count != 1:
+    raise SystemExit(f"Missing model field in {path}")
+content = re.sub(r"^variant:.*\n", "", content, flags=re.MULTILINE)
+path.write_text(content)
+PYEOF
+  echo "    $role -> $selected"
 done
 
-rm -f /tmp/opencode-free-models.json
+python3 - "$CONFIG_DIR" "$MANIFEST" <<'PYEOF'
+import hashlib
+import json
+import os
+import sys
+from pathlib import Path
+
+config_dir = Path(sys.argv[1])
+manifest_path = Path(sys.argv[2])
+with manifest_path.open() as f:
+    manifest = json.load(f)
+if manifest.get("version") != 3 or not isinstance(manifest.get("files"), dict):
+    raise SystemExit("Unsupported pipeline manifest")
+for relative in list(manifest["files"]):
+    path = config_dir / relative
+    if path.exists():
+        manifest["files"][relative] = hashlib.sha256(path.read_bytes()).hexdigest()
+manifest["profile"] = "custom"
+temporary = manifest_path.with_suffix(".tmp")
+with temporary.open("w") as f:
+    json.dump(manifest, f, indent=2)
+    f.write("\n")
+os.replace(temporary, manifest_path)
+PYEOF
 
 echo ""
-echo "==> ✓ All selections applied."
-echo "    Run 'opencode' to use the new models."
+echo "==> Model selections applied. Restart OpenCode to use them."

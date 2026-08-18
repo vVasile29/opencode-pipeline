@@ -1,214 +1,123 @@
 # OpenCode Multi-Agent Pipeline
 
-A reusable multi-agent coding pipeline for [OpenCode](https://opencode.ai). Installs in your global config so every project inherits it.
+A reusable eight-phase coding pipeline for [OpenCode](https://opencode.ai). Agent names represent stable roles; model providers are selected through profiles.
 
-**Two variants available:**
-
-| Pipeline | Models | Cost | When to use |
-|----------|--------|------|-------------|
-| **pipeline** (free) | OpenCode Zen free models | Free | Daily driver |
-| **pipeline-gpt** (paid) | Your OpenAI GPT models | Your API costs | When free quota exhausted, or for higher quality |
-
-Both install side-by-side. Switch between them in the opencode TUI via the **Tab key**.
-
-The installers add global `task` deny rules for pipeline role names such as `planner*` and `implementer*`. The bundled pipeline orchestrators override those rules for their own role agents, keeping normal task spawning isolated regardless of the assigned model or name suffix. Explicit per-agent permission overrides and direct manual agent selection still take precedence.
-
-**Phases (both pipelines):** clarify(planner) → review-plan(debater) → implement(implementer) → review-code(reviewer) → security-review(security-reviewer) → test(tester) → lint(linter) → commit-msg(commit-msg)
-
-Only the **implementer** can touch source files. All other agents are read-only — the debater critiques plans, the reviewer inspects diffs, the tester runs tests, etc.
-
----
-
-## Quick Install
-
-### Free pipeline only
-```bash
-curl -fsSL https://raw.githubusercontent.com/vVasile29/opencode-pipeline/master/install.sh | bash
+```text
+clarify(planner) -> review-plan(debater) -> implement(implementer)
+-> review-code(reviewer) -> security-review(security-reviewer)
+-> test(tester) -> lint(linter) -> commit-msg(commit-msg)
 ```
 
-### GPT pipeline (paid, adds alongside free)
-```bash
-curl -fsSL https://raw.githubusercontent.com/vVasile29/opencode-pipeline/master/install-gpt.sh | bash
-```
+Only `implementer` can modify source files. The `pipeline` primary agent orchestrates all role subagents.
 
-Then `cd` into any project and run `opencode`. The pipeline agent is now your default.
+## Install
 
----
-
-## Usage
+Install the free-model profile:
 
 ```bash
-cd /your/project
-opencode
+curl -fsSL https://raw.githubusercontent.com/vVasile29/opencode-pipeline/master/install.sh | bash -s -- free
 ```
 
-Then describe what you want built:
+Install the GPT-5.6 profile:
 
-> *"Add a due-date field to tasks and an 'overdue' command."*
-
-The pipeline reads the request → plans → debates → implements → reviews → security-audits → tests → lints → drafts a commit message — all with different specialized models.
-
-### Switching pipelines
-
-**Via TUI (recommended):**
-1. Run `opencode`
-2. Press **Tab** to open the agent selector
-3. Pick **pipeline** (free) or **pipeline-gpt** (paid)
-4. Describe your task
-
-**Via config:**
 ```bash
-# Set GPT as your default
-opencode.json → "default_agent": "pipeline-gpt"
-
-# Revert to free
-opencode.json → "default_agent": "pipeline"
+curl -fsSL https://raw.githubusercontent.com/vVasile29/opencode-pipeline/master/install.sh | bash -s -- gpt
 ```
 
----
+Restart OpenCode, press **Tab**, and select `pipeline`. The installer does not change `default_agent` or rewrite `opencode.json`/`opencode.jsonc`.
 
-## Selecting Models
+Re-run the same command with a different profile to switch models. The canonical agent names stay unchanged.
 
-### Free pipeline models
-The free pipeline uses OpenCode Zen free models by default. Models change over time — swap them anytime:
+## Profiles
 
-**Interactive (recommended):**
+| Role | Free profile | GPT profile |
+| --- | --- | --- |
+| `pipeline` | Big Pickle | GPT-5.6 Terra, medium |
+| `planner` | Big Pickle | GPT-5.6 Sol, high |
+| `debater` | MiMo V2.5 Free | GPT-5.6 Terra, medium |
+| `implementer` | DeepSeek V4 Flash Free | GPT-5.6 Sol, medium |
+| `reviewer` | Big Pickle | GPT-5.6 Terra, medium |
+| `security-reviewer` | Big Pickle | GPT-5.6 Sol, high |
+| `tester` | Big Pickle | GPT-5.6 Luna, low |
+| `linter` | Big Pickle | GPT-5.6 Luna, low |
+| `commit-msg` | Big Pickle | GPT-5.6 Luna, low |
+
+Profiles live under `models/profiles/`. Adding another provider, such as Qwen, requires only another profile; it does not require another set of agents.
+
+## Custom Models
+
+Use the provider-agnostic selector to assign any model reported by `opencode models`:
+
 ```bash
-curl -fsSL https://raw.githubusercontent.com/vVasile29/opencode-pipeline/master/select-models.sh | bash
+bash <(curl -fsSL https://raw.githubusercontent.com/vVasile29/opencode-pipeline/master/select-models.sh)
 ```
-Uses `fzf` (if available) to let you pick a model for each role from the current free pool.
 
-**Auto-select:**
+The selector updates the same canonical role files and marks the installed profile as `custom`.
+
+## Permission Isolation
+
+The installer adds one auto-discovered global plugin:
+
+```text
+~/.config/opencode/plugins/opencode-pipeline-permissions.js
+```
+
+At runtime the plugin adds exact `task` denies for the eight role names. The `pipeline` agent has a local exact allowlist that overrides those denies. No wildcard role names or model-specific permission rules are needed.
+
+Role subagents are also hidden from autocomplete. OpenCode still permits explicit invocation when permissions allow; the plugin prevents normal non-pipeline task spawning.
+
+Removing the plugin removes the permission overlay. The user's persisted OpenCode configuration is never rewritten.
+
+## Installation Safety
+
+The installer downloads and validates everything in a temporary directory before writing global files. It refuses to overwrite:
+
+- an agent or plugin it does not own;
+- an installed pipeline file modified since installation;
+- a legacy side-by-side GPT installation.
+
+The ownership manifest stores file hashes, not configuration backups:
+
+```text
+~/.config/opencode/.opencode-pipeline-manifest.json
+```
+
+Profile switching is allowed only while the installed files still match the manifest. The custom model selector updates the hashes after intentional model changes.
+
+## Upgrading The Legacy Dual Pipeline
+
+The old `pipeline`/`pipeline-gpt` installation must be uninstalled before using this version. The new installer deliberately refuses to guess ownership of legacy files.
+
+Use the uninstallers from the last dual-pipeline release, then install one canonical profile:
+
 ```bash
-curl -fsSL https://raw.githubusercontent.com/vVasile29/opencode-pipeline/master/auto-select-models.sh | bash
-```
-Scores every free model by capability and assigns the best fit to each role automatically.
-
-### GPT pipeline models
-The GPT pipeline is pre-configured with your OpenAI models. To change assignments:
-
-**Interactive:**
-```bash
-curl -fsSL https://raw.githubusercontent.com/vVasile29/opencode-pipeline/master/select-gpt-models.sh | bash
-```
-Lists all OpenAI models from your opencode cache and lets you pick per role.
-
-**Or edit agent files directly:**
-```bash
-# Edit model field in any agent file
-~/.config/opencode/agents/planner-gpt.md    → model: openai/gpt-5.5
-~/.config/opencode/agents/tester-gpt.md     → model: openai/gpt-5.4-mini
+curl -fsSL https://raw.githubusercontent.com/vVasile29/opencode-pipeline/784138b/uninstall-gpt.sh | bash
+curl -fsSL https://raw.githubusercontent.com/vVasile29/opencode-pipeline/784138b/uninstall.sh | bash
 ```
 
----
-
-## Default Assignments
-
-### Free pipeline (pipeline)
-
-| Role | Model | Responsibility |
-|------|-------|----------------|
-| **pipeline** | Big Pickle | Orchestrates the 8-phase handoff |
-| **planner** | Big Pickle | Clarifies scope, writes plan |
-| **debater** | MiMo V2.5 Free | Critiques plan (different model) |
-| **implementer** | DeepSeek V4 Flash Free | **Only agent that writes code** |
-| **reviewer** | Big Pickle | Reviews diff for correctness |
-| **security-reviewer** | Big Pickle | Audits code for vulnerabilities |
-| **tester** | Big Pickle | Runs test suite |
-| **linter** | Big Pickle | Runs lint checks |
-| **commit-msg** | Big Pickle | Drafts conventional commit |
-
-### GPT pipeline (pipeline-gpt)
-
-| Role | Model | Reasoning Effort | Responsibility |
-|------|-------|-----------------|----------------|
-| **pipeline-gpt** | GPT-5.5 | medium | Orchestrates the 8-phase handoff |
-| **planner-gpt** | GPT-5.5 | high | Clarifies scope, writes plan |
-| **debater-gpt** | GPT-5.5 | medium | Critiques plan (diverse perspective) |
-| **implementer-gpt** | GPT-5.5 | medium | **Only agent that writes code** |
-| **reviewer-gpt** | GPT-5.5 | medium | Reviews diff for correctness |
-| **security-reviewer-gpt** | GPT-5.5 | high | Audits code for vulnerabilities |
-| **tester-gpt** | GPT-5.4 mini | low | Runs test suite |
-| **linter-gpt** | GPT-5.4 mini | low | Runs lint checks |
-| **commit-msg-gpt** | GPT-5.4 mini | low | Drafts conventional commit |
-
----
-
-## Architecture
-
-Both pipelines follow the same pattern. The GPT variant uses the `-gpt` suffix on all agent names:
-
-```
-~/.config/opencode/
-├── opencode.json              ← sets default_agent (pick "pipeline" or "pipeline-gpt")
-├── agents/
-│   ├── pipeline.md            ← free orchestrator (primary)
-│   ├── planner.md             ← free subagent
-│   ├── ...
-│   ├── commit-msg.md          ← free subagent
-│   ├── pipeline-gpt.md        ← GPT orchestrator (primary)
-│   ├── planner-gpt.md         ← GPT subagent
-│   ├── ...
-│   └── commit-msg-gpt.md      ← GPT subagent
-├── .opencode-pipeline-manifest.json      ← tracks free pipeline files
-└── .opencode-pipeline-gpt-manifest.json  ← tracks GPT pipeline files
-```
+Review `~/.config/opencode/scripts/` before running the legacy free uninstaller because that old release removes the whole directory.
 
 ## Uninstall
 
-### Free pipeline only
 ```bash
 curl -fsSL https://raw.githubusercontent.com/vVasile29/opencode-pipeline/master/uninstall.sh | bash
 ```
 
-### GPT pipeline only
-```bash
-curl -fsSL https://raw.githubusercontent.com/vVasile29/opencode-pipeline/master/uninstall-gpt.sh | bash
-```
-Leaves the free pipeline intact.
+Uninstall removes only unchanged files listed in the ownership manifest. Modified files are preserved and reported. Restart OpenCode afterward to unload the permission plugin.
 
-### Both pipelines
-Run both uninstall commands above.
+## Repository Layout
 
----
-
-## Files in this repo
-
-```
+```text
 opencode-pipeline/
-├── opencode.json              ← default_agent config (merged at install)
-├── README.md
-├── .gitignore
-├── install.sh                 ← installs free pipeline
-├── uninstall.sh               ← removes free pipeline
-├── install-gpt.sh             ← installs GPT pipeline (alongside free)
-├── uninstall-gpt.sh           ← removes GPT pipeline only
-├── select-models.sh           ← interactive model picker for free pipeline
-├── auto-select-models.sh      ← automatic model assigner for free pipeline
-├── select-gpt-models.sh       ← interactive model picker for GPT pipeline
-├── agents/                    ← free pipeline agent definitions
-│   ├── pipeline.md
-│   ├── planner.md
-│   ├── debater.md
-│   ├── implementer.md
-│   ├── reviewer.md
-│   ├── security-reviewer.md
-│   ├── tester.md
-│   ├── linter.md
-│   └── commit-msg.md
-├── gpt/                       ← GPT pipeline agent definitions
-│   ├── pipeline-gpt.md
-│   ├── planner-gpt.md
-│   ├── debater-gpt.md
-│   ├── implementer-gpt.md
-│   ├── reviewer-gpt.md
-│   ├── security-reviewer-gpt.md
-│   ├── tester-gpt.md
-│   ├── linter-gpt.md
-│   └── commit-msg-gpt.md
-└── models/
-    ├── assign_models.py       ← capability-scoring algorithm
-    └── roles.json             ← role requirements for scoring
+├── agents/                         canonical pipeline and role prompts
+├── models/profiles/
+│   ├── free.json                   free-model assignments
+│   └── gpt.json                    GPT-5.6 assignments
+├── plugins/
+│   └── opencode-pipeline-permissions.js
+├── install.sh                      install or switch a profile
+├── uninstall.sh                    remove installer-owned files
+└── select-models.sh                choose any available model per role
 ```
 
 ## License

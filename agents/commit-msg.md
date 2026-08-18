@@ -1,6 +1,7 @@
 ---
 description: Drafts a conventional commit message from the diff
 mode: subagent
+hidden: true
 model: opencode/big-pickle
 temperature: 0.2
 permission:
