@@ -1,0 +1,15 @@
+{
+  "name": "qwen3-8-27b",
+  "description": "Local Ollama Qwen 3.8 27B defaults",
+  "agents": {
+    "pipeline": { "model": "ollama/qwen3.8:27b", "variant": "medium" },
+    "planner": { "model": "ollama/qwen3.8:27b", "variant": "high" },
+    "debater": { "model": "ollama/qwen3.8:27b", "variant": "high" },
+    "implementer": { "model": "ollama/qwen3.8:27b", "variant": "high" },
+    "reviewer": { "model": "ollama/qwen3.8:27b", "variant": "high" },
+    "security-reviewer": { "model": "ollama/qwen3.8:27b", "variant": "high" },
+    "tester": { "model": "ollama/qwen3.8:27b", "variant": "medium" },
+    "linter": { "model": "ollama/qwen3.8:27b", "variant": "low" },
+    "commit-msg": { "model": "ollama/qwen3.8:27b", "variant": "low" }
+  }
+}
