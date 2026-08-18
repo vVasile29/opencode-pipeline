@@ -5,6 +5,7 @@ hidden: true
 model: opencode/deepseek-v4-flash-free
 temperature: 0.2
 permission:
+  task: deny
   edit: allow
   bash: allow
   write: allow

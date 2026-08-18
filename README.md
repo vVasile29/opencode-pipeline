@@ -24,9 +24,9 @@ Install the GPT-5.6 profile:
 curl -fsSL https://raw.githubusercontent.com/vVasile29/opencode-pipeline/master/install.sh | bash -s -- gpt
 ```
 
-Restart OpenCode, press **Tab**, and select `pipeline`. The installer does not change `default_agent` or rewrite `opencode.json`/`opencode.jsonc`.
+Restart OpenCode after installation, press **Tab**, and select `pipeline`. The installer does not change `default_agent` or rewrite `opencode.json`/`opencode.jsonc`.
 
-Re-run the same command with a different profile to switch models. The canonical agent names stay unchanged.
+Re-run the same command with a different profile to switch models. The canonical agent names stay unchanged, and OpenCode must be restarted after every profile switch.
 
 ## Profiles
 
@@ -62,9 +62,11 @@ The installer adds one auto-discovered global plugin:
 ~/.config/opencode/plugins/opencode-pipeline-permissions.js
 ```
 
-At runtime the plugin adds exact `task` denies for the eight role names. The `pipeline` agent has a local exact allowlist that overrides those denies. No wildcard role names or model-specific permission rules are needed.
+At runtime the plugin adds exact `task` denies for the eight role names. It preserves every unrelated user task rule and moves the exact pipeline-role denies after all existing rules so OpenCode's last-match-wins evaluation cannot be overridden by an earlier role entry or later wildcard. No wildcard role names or model-specific permission rules are needed.
 
-Role subagents are also hidden from autocomplete. OpenCode still permits explicit invocation when permissions allow; the plugin prevents normal non-pipeline task spawning.
+The `pipeline` agent has a local wildcard denial followed by exact allows for the eight roles, so it can launch exactly the pipeline workflow. Every role agent has a complete `task: deny`, preventing it from launching generic, exploratory, pipeline, or custom subagents. Ordinary non-pipeline primary agents cannot launch the protected role agents.
+
+Role subagents are also hidden from autocomplete. OpenCode still permits direct user invocation where supported; task permissions enforce the model-driven orchestration boundary.
 
 Removing the plugin removes the permission overlay. The user's persisted OpenCode configuration is never rewritten.
 
@@ -83,6 +85,10 @@ The ownership manifest stores file hashes, not configuration backups:
 ```
 
 Profile switching is allowed only while the installed files still match the manifest. The custom model selector updates the hashes after intentional model changes.
+
+Installation and profile switching use a rollback-capable transaction. New files and rollback copies are prepared on the destination filesystem, each target is replaced atomically, and the manifest is replaced last. Ordinary exceptions and handled `SIGINT`/`SIGTERM` interruptions restore every previous target and the previous manifest, or remove newly created targets during a failed fresh install.
+
+This is not a claim of full crash consistency: `SIGKILL`, machine failure, power loss, or storage failure can stop the process without running rollback. Such failures may leave destination-local temporary files or a partially replaced installation requiring manual recovery.
 
 ## Upgrading The Legacy Dual Pipeline
 
@@ -115,6 +121,8 @@ opencode-pipeline/
 │   └── gpt.json                    GPT-5.6 assignments
 ├── plugins/
 │   └── opencode-pipeline-permissions.js
+├── tests/
+│   └── test_pipeline.py              isolated permission and lifecycle regressions
 ├── install.sh                      install or switch a profile
 ├── uninstall.sh                    remove installer-owned files
 └── select-models.sh                choose any available model per role

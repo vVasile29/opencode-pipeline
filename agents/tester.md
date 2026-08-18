@@ -5,6 +5,7 @@ hidden: true
 model: opencode/big-pickle
 temperature: 0.1
 permission:
+  task: deny
   edit: deny
   bash: allow
   write: deny

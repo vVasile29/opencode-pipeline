@@ -5,6 +5,7 @@ hidden: true
 model: opencode/mimo-v2.5-free
 temperature: 0.3
 permission:
+  task: deny
   edit: deny
   bash: deny
   write: deny
