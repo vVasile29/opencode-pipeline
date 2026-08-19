@@ -77,9 +77,9 @@ class PipelineRegressionTests(unittest.TestCase):
             check=check,
         )
 
-    def run_selector(self, model):
+    def run_selector(self, model, *, all_roles=False, check=True):
         binary_directory = self.root / "bin"
-        binary_directory.mkdir()
+        binary_directory.mkdir(exist_ok=True)
         opencode = binary_directory / "opencode"
         opencode.write_text(f"#!/bin/sh\nprintf '%s\\n' '{model}'\n")
         opencode.chmod(0o755)
@@ -88,13 +88,16 @@ class PipelineRegressionTests(unittest.TestCase):
         fzf.chmod(0o755)
         environment = self.environment.copy()
         environment["PATH"] = f"{binary_directory}{os.pathsep}{environment['PATH']}"
+        command = ["bash", str(ROOT / "select-models.sh")]
+        if all_roles:
+            command.append(model)
         return subprocess.run(
-            ["bash", str(ROOT / "select-models.sh")],
+            command,
             cwd=ROOT,
             env=environment,
             text=True,
             capture_output=True,
-            check=True,
+            check=check,
         )
 
     def installed_paths(self):
@@ -274,6 +277,24 @@ process.stdout.write(JSON.stringify(configs))
             },
             {agent: settings["variant"] for agent, settings in profile["agents"].items()},
         )
+
+    def test_fresh_qwen3_8_27b_mtp_bf16_profile_installation(self):
+        self.run_install("qwen3-8-27b-mtp-bf16")
+        self.assert_profile("qwen3-8-27b-mtp-bf16")
+
+    def test_quick_selector_assigns_one_model_to_every_role(self):
+        model = "ollama/qwen3.8:27b-mtp-bf16"
+        self.run_install("free")
+        self.run_selector(model, all_roles=True)
+
+        manifest = json.loads((self.config / ".opencode-pipeline-manifest.json").read_text())
+        self.assertEqual("custom", manifest["profile"])
+        for agent in ALL_AGENTS:
+            content = frontmatter(self.config / "agents" / f"{agent}.md")
+            self.assertIn(f"\nmodel: {model}\n", content)
+            self.assertNotIn("\nvariant:", content)
+        for relative, expected in manifest["files"].items():
+            self.assertEqual(expected, sha256(self.config / relative))
 
     def test_switching_from_qwen_removes_variant(self):
         self.run_install("qwen3-8-27b")

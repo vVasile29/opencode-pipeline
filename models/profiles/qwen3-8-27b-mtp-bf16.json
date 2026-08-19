@@ -1,0 +1,16 @@
+{
+  "name": "qwen3-8-27b-mtp-bf16",
+  "description": "Local Ollama Qwen 3.8 27B MTP BF16 defaults",
+  "agents": {
+    "pipeline": { "model": "ollama/qwen3.8:27b-mtp-bf16", "variant": "medium" },
+    "context-manager": { "model": "ollama/qwen3.8:27b-mtp-bf16", "variant": "high" },
+    "planner": { "model": "ollama/qwen3.8:27b-mtp-bf16", "variant": "high" },
+    "debater": { "model": "ollama/qwen3.8:27b-mtp-bf16", "variant": "high" },
+    "implementer": { "model": "ollama/qwen3.8:27b-mtp-bf16", "variant": "high" },
+    "reviewer": { "model": "ollama/qwen3.8:27b-mtp-bf16", "variant": "high" },
+    "security-reviewer": { "model": "ollama/qwen3.8:27b-mtp-bf16", "variant": "high" },
+    "tester": { "model": "ollama/qwen3.8:27b-mtp-bf16", "variant": "medium" },
+    "linter": { "model": "ollama/qwen3.8:27b-mtp-bf16", "variant": "low" },
+    "commit-msg": { "model": "ollama/qwen3.8:27b-mtp-bf16", "variant": "low" }
+  }
+}

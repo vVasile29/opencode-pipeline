@@ -60,7 +60,14 @@ ollama pull qwen3.8:27b
 curl -fsSL https://raw.githubusercontent.com/vVasile29/opencode-pipeline/master/install.sh | bash -s -- qwen3-8-27b
 ```
 
-The Qwen profile expects OpenCode to expose the model as `ollama/qwen3.8:27b` with `low`, `medium`, and `high` variants. If Ollama is not already configured as an OpenCode provider, add this to your global `~/.config/opencode/opencode.json` (merging it with any existing configuration):
+For the MTP BF16 model, use the matching profile instead:
+
+```bash
+ollama pull qwen3.8:27b-mtp-bf16
+curl -fsSL https://raw.githubusercontent.com/vVasile29/opencode-pipeline/master/install.sh | bash -s -- qwen3-8-27b-mtp-bf16
+```
+
+The Qwen profiles expect OpenCode to expose the selected model with `low`, `medium`, and `high` variants. If Ollama is not already configured as an OpenCode provider, add this to your global `~/.config/opencode/opencode.json` (merging it with any existing configuration and changing the model ID when using another tag):
 
 ```json
 {
@@ -131,7 +138,13 @@ Use the provider-agnostic selector to assign any model reported by `opencode mod
 bash <(curl -fsSL https://raw.githubusercontent.com/vVasile29/opencode-pipeline/master/select-models.sh)
 ```
 
-The selector updates the same canonical role files and marks the installed profile as `custom`.
+Pass a model ID to switch every role at once without interactive prompts:
+
+```bash
+bash <(curl -fsSL https://raw.githubusercontent.com/vVasile29/opencode-pipeline/master/select-models.sh) ollama/qwen3.8:27b-mtp-bf16
+```
+
+The selector updates the same canonical role files and marks the installed profile as `custom`. The one-model quick switch removes role variants so it also works with models that do not define reasoning variants.
 
 ## Permission Isolation
 
@@ -198,7 +211,8 @@ opencode-pipeline/
 ├── models/profiles/
 │   ├── free.json                   free-model assignments
 │   ├── gpt.json                    GPT-5.6 assignments
-│   └── qwen3-8-27b.json            local Ollama Qwen 3.8 27B assignments
+│   ├── qwen3-8-27b.json            local Ollama Qwen 3.8 27B assignments
+│   └── qwen3-8-27b-mtp-bf16.json   local Ollama Qwen 3.8 27B MTP BF16 assignments
 ├── plugins/
 │   └── opencode-pipeline-permissions.js
 ├── tests/
