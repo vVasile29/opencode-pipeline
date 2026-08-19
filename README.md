@@ -10,6 +10,24 @@ clarify(planner) -> review-plan(debater) -> implement(implementer)
 
 Only `implementer` can modify source files. The `pipeline` primary agent orchestrates all role subagents.
 
+## Agent And Model Separation
+
+`agents/` contains one canonical, model-agnostic definition for each role. These
+files own descriptions, prompts, permissions, and role behavior; they contain no
+`model` or `variant` fields.
+
+Model assignments live only in `models/profiles/*.json`. Installation copies
+the selected profile to:
+
+```text
+~/.config/opencode/.opencode-pipeline-profile.json
+```
+
+At startup, the pipeline plugin applies that profile's `model` and optional
+`variant` to the canonical agents in memory. Switching profiles or choosing
+custom models therefore changes only the active profile file, not any agent
+Markdown.
+
 ## Optional Persistent Context
 
 The fixed coding phases remain independent of any memory implementation. An
@@ -30,9 +48,23 @@ npx skills add vVasile29/coding-agent-skills --skill coding-context-okf
 ```
 
 The context manager is the only pipeline role that loads the skill. It places a
-bounded handoff in `.opencode-workflow-state.md`; phase agents do not load vault
-histories or topic directories themselves. Context errors are non-fatal, and
-both repositories continue to work independently.
+bounded handoff in the current session's workflow state file; phase agents do
+not load vault histories or topic directories themselves. Context errors are
+non-fatal, and both repositories continue to work independently.
+
+## Session-Isolated State
+
+Each top-level OpenCode session gets its own state file in the project root:
+
+```text
+.opencode-workflow-state-<session-id>.md
+```
+
+The runtime plugin injects this exact path into the `pipeline` request and every
+protected phase task. Returning to an earlier OpenCode session therefore
+continues with that session's file, while a new session creates a different
+file. Phase agents must not read the legacy unsuffixed
+`.opencode-workflow-state.md` or another session's state.
 
 For source isolation, automatic context writes are allowed only below a path
 matching `**/Engineering Context/repositories/**`. The default skill path works
@@ -111,7 +143,15 @@ The profile selects reasoning variants by role: high for context management, pla
 
 Restart OpenCode after installation, press **Tab**, and select `pipeline`. The installer does not change `default_agent` or rewrite `opencode.json`/`opencode.jsonc`.
 
-Re-run the same command with a different profile to switch models. The canonical agent names stay unchanged, and OpenCode must be restarted after every profile switch.
+Install once, then switch a named profile without reinstalling the agents:
+
+```bash
+bash <(curl -fsSL https://raw.githubusercontent.com/vVasile29/opencode-pipeline/master/switch-profile.sh) gpt
+```
+
+Use `free`, `gpt`, `qwen3-8-27b`, or `qwen3-8-27b-mtp-bf16`. The canonical agent
+files remain byte-for-byte unchanged. OpenCode must be restarted after every
+profile switch.
 
 ## Profiles
 
@@ -144,7 +184,10 @@ Pass a model ID to switch every role at once without interactive prompts:
 bash <(curl -fsSL https://raw.githubusercontent.com/vVasile29/opencode-pipeline/master/select-models.sh) ollama/qwen3.8:27b-mtp-bf16
 ```
 
-The selector updates the same canonical role files and marks the installed profile as `custom`. The one-model quick switch removes role variants so it also works with models that do not define reasoning variants.
+The selector updates only `.opencode-pipeline-profile.json` and marks it as
+`custom`. The canonical role files remain unchanged. The one-model quick switch
+removes role variants so it also works with models that do not define reasoning
+variants.
 
 ## Permission Isolation
 
@@ -154,7 +197,14 @@ The installer adds one auto-discovered global plugin:
 ~/.config/opencode/plugins/opencode-pipeline-permissions.js
 ```
 
-At runtime the plugin adds exact `task` denies for the nine protected subagent names: the eight phase roles plus `context-manager`. It preserves every unrelated user task rule and moves the exact pipeline-role denies after all existing rules so OpenCode's last-match-wins evaluation cannot be overridden by an earlier role entry or later wildcard. No wildcard role names or model-specific permission rules are needed.
+At runtime the plugin applies the active model profile and adds exact `task`
+denies for the nine protected subagent names: the eight phase roles plus
+`context-manager`. It preserves every unrelated user task rule and moves the
+exact pipeline-role denies after all existing rules so OpenCode's
+last-match-wins evaluation cannot be overridden by an earlier role entry or
+later wildcard. It also derives a workflow filename from the top-level session
+ID and passes it through every pipeline handoff. No wildcard role names or
+model-specific permission rules are needed in agent files.
 
 The `pipeline` agent has a local wildcard denial followed by exact allows for the nine protected roles, so it can launch exactly the pipeline workflow and optional context hook. Every role agent has a complete `task: deny`, preventing it from launching generic, exploratory, pipeline, or custom subagents. Ordinary non-pipeline primary agents cannot launch the protected role agents.
 
@@ -170,13 +220,16 @@ The installer downloads and validates everything in a temporary directory before
 - an installed pipeline file modified since installation;
 - a legacy side-by-side GPT installation.
 
-The ownership manifest stores file hashes, not configuration backups:
+The ownership manifest stores file hashes, not configuration backups. It also
+owns the active profile file:
 
 ```text
 ~/.config/opencode/.opencode-pipeline-manifest.json
 ```
 
-Profile switching is allowed only while the installed files still match the manifest. The custom model selector updates the hashes after intentional model changes.
+Installation and upgrades require every installer-owned file to match the
+manifest. Profile switches and custom model selection require only the active
+profile to match, and update its manifest hash after an intentional change.
 
 Installation and profile switching use a rollback-capable transaction. New files and rollback copies are prepared on the destination filesystem, each target is replaced atomically, and the manifest is replaced last. Ordinary exceptions and handled `SIGINT`/`SIGTERM` interruptions restore every previous target and the previous manifest, or remove newly created targets during a failed fresh install.
 
@@ -207,7 +260,7 @@ Uninstall removes only unchanged files listed in the ownership manifest. Modifie
 
 ```text
 opencode-pipeline/
-├── agents/                         orchestrator, eight phase roles, and optional context hook
+├── agents/                         canonical model-agnostic agent definitions
 ├── models/profiles/
 │   ├── free.json                   free-model assignments
 │   ├── gpt.json                    GPT-5.6 assignments
@@ -217,9 +270,10 @@ opencode-pipeline/
 │   └── opencode-pipeline-permissions.js
 ├── tests/
 │   └── test_pipeline.py              isolated permission and lifecycle regressions
-├── install.sh                      install or switch a profile
+├── install.sh                      install or upgrade agents and select an initial profile
+├── switch-profile.sh               switch a named profile without touching agents
 ├── uninstall.sh                    remove installer-owned files
-└── select-models.sh                choose any available model per role
+└── select-models.sh                update custom model mappings in the active profile
 ```
 
 ## License

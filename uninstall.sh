@@ -21,7 +21,7 @@ manifest_path = Path(sys.argv[2])
 with manifest_path.open() as f:
     manifest = json.load(f)
 
-if manifest.get("version") != 3 or not isinstance(manifest.get("files"), dict):
+if manifest.get("version") not in {3, 4} or not isinstance(manifest.get("files"), dict):
     raise SystemExit("Legacy manifest detected; use the legacy uninstaller for that installation")
 
 preserved = []
@@ -29,7 +29,9 @@ for relative, expected_hash in manifest["files"].items():
     if not isinstance(relative, str) or not isinstance(expected_hash, str):
         raise SystemExit("Invalid pipeline manifest")
     relative_path = Path(relative)
-    if len(relative_path.parts) != 2 or relative_path.parts[0] not in {"agents", "plugins"}:
+    allowed_root_file = relative == ".opencode-pipeline-profile.json"
+    allowed_nested_file = len(relative_path.parts) == 2 and relative_path.parts[0] in {"agents", "plugins"}
+    if not allowed_root_file and not allowed_nested_file:
         raise SystemExit(f"Unsafe manifest path: {relative}")
     path = (config_dir / relative).resolve()
     if config_dir not in path.parents:

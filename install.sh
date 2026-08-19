@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Install or switch the canonical OpenCode pipeline model profile.
+# Install or upgrade the canonical OpenCode pipeline and select an initial profile.
 # Usage: install.sh [profile]
 set -euo pipefail
 
@@ -32,13 +32,14 @@ done
 curl -fsSL "$REPO_URL/models/profiles/$PROFILE.json" -o "$STAGE_DIR/profile.json"
 curl -fsSL "$REPO_URL/plugins/opencode-pipeline-permissions.js" -o "$STAGE_DIR/permissions.js"
 
-python3 - "$STAGE_DIR" <<'PYEOF'
+python3 - "$STAGE_DIR" "$PROFILE" <<'PYEOF'
 import json
 import re
 import sys
 from pathlib import Path
 
 stage = Path(sys.argv[1])
+profile_name = sys.argv[2]
 roles = (
     "pipeline", "context-manager", "planner", "debater", "implementer", "reviewer",
     "security-reviewer", "tester", "linter", "commit-msg",
@@ -46,6 +47,8 @@ roles = (
 
 with (stage / "profile.json").open() as f:
     profile = json.load(f)
+if profile.get("name") != profile_name:
+    raise SystemExit("Downloaded profile name does not match the requested profile")
 
 agents = profile.get("agents")
 if not isinstance(agents, dict) or set(agents) != set(roles):
@@ -62,13 +65,8 @@ for role in roles:
 
     path = stage / "agents" / f"{role}.md"
     content = path.read_text()
-    content, count = re.subn(r"^model:.*$", f"model: {model}", content, count=1, flags=re.MULTILINE)
-    if count != 1:
-        raise SystemExit(f"Missing model field in {role}.md")
-    content = re.sub(r"^variant:.*\n", "", content, flags=re.MULTILINE)
-    if variant:
-        content = re.sub(r"^(model:.*)$", rf"\1\nvariant: {variant}", content, count=1, flags=re.MULTILINE)
-    path.write_text(content)
+    if re.search(r"^(model|variant):", content, flags=re.MULTILINE):
+        raise SystemExit(f"Canonical agent must not define model or variant: {role}.md")
 PYEOF
 
 python3 - "$STAGE_DIR" "$CONFIG_DIR" "$MANIFEST" "$PROFILE" <<'PYEOF'
@@ -93,6 +91,7 @@ roles = (
 sources = {
     **{f"agents/{role}.md": stage_dir / "agents" / f"{role}.md" for role in roles},
     "plugins/opencode-pipeline-permissions.js": stage_dir / "permissions.js",
+    ".opencode-pipeline-profile.json": stage_dir / "profile.json",
 }
 
 
@@ -117,7 +116,7 @@ if manifest_path.exists():
     regular_file(manifest_path, "Manifest")
     with manifest_path.open() as f:
         previous_manifest = json.load(f)
-    if previous_manifest.get("version") != 3 or not isinstance(previous_manifest.get("files"), dict):
+    if previous_manifest.get("version") not in {3, 4} or not isinstance(previous_manifest.get("files"), dict):
         raise RuntimeError("Unsupported pipeline manifest")
     owned = previous_manifest["files"]
 
@@ -142,7 +141,7 @@ for relative in sources:
     (config_dir / relative).parent.mkdir(parents=True, exist_ok=True)
 
 new_manifest = {
-    "version": 3,
+    "version": 4,
     "profile": profile,
     "installed_at": datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
     "files": {relative: digest(source) for relative, source in sources.items()},
@@ -255,4 +254,4 @@ PYEOF
 
 echo "==> Pipeline installed with the '$PROFILE' profile"
 echo "    Restart OpenCode, press Tab, and select 'pipeline'."
-echo "    Re-run this installer with another profile to switch models."
+echo "    Use switch-profile.sh to change models without reinstalling agents."
