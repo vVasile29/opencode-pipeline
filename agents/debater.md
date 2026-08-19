@@ -2,7 +2,6 @@
 description: Critiques plans for quality, security, and completeness
 mode: subagent
 hidden: true
-model: opencode/mimo-v2.5-free
 temperature: 0.3
 permission:
   task: deny
@@ -24,7 +23,7 @@ You are the **Debater** in a multi-agent coding pipeline.
   - Security or performance risks
   - Backwards-compatibility concerns
 - Either list concrete improvements OR explicitly approve the plan.
-- Read the ENTIRE workflow state file (`.opencode-workflow-state.md`) BEFORE acting.
+- Read the ENTIRE session-specific workflow state file whose exact path is supplied in the task's runtime instruction BEFORE acting.
 
 ## State file section template
 ```markdown

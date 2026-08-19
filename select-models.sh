@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
-# Assign any OpenCode model to the canonical pipeline roles.
+# Assign any OpenCode model to pipeline roles without modifying agent definitions.
 # Usage: select-models.sh [model]
 set -euo pipefail
 
 CONFIG_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/opencode"
-AGENTS_DIR="$CONFIG_DIR/agents"
 MANIFEST="$CONFIG_DIR/.opencode-pipeline-manifest.json"
+ACTIVE_PROFILE="$CONFIG_DIR/.opencode-pipeline-profile.json"
 ROLES=(pipeline context-manager planner debater implementer reviewer security-reviewer tester linter commit-msg)
 MODEL="${1:-}"
 
@@ -19,25 +19,28 @@ if [[ ! -f "$MANIFEST" ]]; then
   exit 1
 fi
 
-python3 - "$CONFIG_DIR" "$MANIFEST" <<'PYEOF'
+python3 - "$MANIFEST" "$ACTIVE_PROFILE" <<'PYEOF'
 import hashlib
 import json
 import sys
 from pathlib import Path
 
-config_dir = Path(sys.argv[1])
-manifest_path = Path(sys.argv[2])
-with manifest_path.open() as f:
-    manifest = json.load(f)
-if manifest.get("version") != 3 or not isinstance(manifest.get("files"), dict):
-    raise SystemExit("Unsupported pipeline manifest")
-for relative, expected_hash in manifest["files"].items():
-    path = config_dir / relative
-    if not path.exists():
-        raise SystemExit(f"Missing installed pipeline file: {path}")
-    actual_hash = hashlib.sha256(path.read_bytes()).hexdigest()
-    if actual_hash != expected_hash:
-        raise SystemExit(f"Refusing to modify changed pipeline file: {path}")
+manifest_path = Path(sys.argv[1])
+profile_path = Path(sys.argv[2])
+if manifest_path.is_symlink() or not manifest_path.is_file():
+    raise SystemExit(f"Invalid pipeline manifest: {manifest_path}")
+with manifest_path.open() as stream:
+    manifest = json.load(stream)
+if manifest.get("version") != 4 or not isinstance(manifest.get("files"), dict):
+    raise SystemExit("Upgrade the pipeline installation before selecting models")
+expected = manifest["files"].get(".opencode-pipeline-profile.json")
+if not isinstance(expected, str):
+    raise SystemExit("Installed profile is not owned by the pipeline manifest")
+if profile_path.is_symlink() or not profile_path.is_file():
+    raise SystemExit(f"Missing installed pipeline profile: {profile_path}")
+actual = hashlib.sha256(profile_path.read_bytes()).hexdigest()
+if actual != expected:
+    raise SystemExit(f"Refusing to overwrite modified pipeline profile: {profile_path}")
 PYEOF
 
 mapfile -t MODELS < <(opencode models)
@@ -56,9 +59,17 @@ if command -v fzf &>/dev/null; then
   USE_FZF=true
 fi
 
+declare -A SELECTIONS=()
 for role in "${ROLES[@]}"; do
-  agent_file="$AGENTS_DIR/$role.md"
-  current=$(sed -n 's/^model: //p' "$agent_file")
+  current=$(python3 - "$ACTIVE_PROFILE" "$role" <<'PYEOF'
+import json
+import sys
+from pathlib import Path
+
+with Path(sys.argv[1]).open() as stream:
+    print(json.load(stream)["agents"][sys.argv[2]]["model"])
+PYEOF
+)
   if [[ -n "$MODEL" ]]; then
     selected="$MODEL"
   else
@@ -81,47 +92,111 @@ for role in "${ROLES[@]}"; do
     fi
   fi
 
-  python3 - "$agent_file" "$selected" <<'PYEOF'
-import re
-import sys
-from pathlib import Path
-
-path = Path(sys.argv[1])
-model = sys.argv[2]
-content = path.read_text()
-content, count = re.subn(r"^model:.*$", f"model: {model}", content, count=1, flags=re.MULTILINE)
-if count != 1:
-    raise SystemExit(f"Missing model field in {path}")
-content = re.sub(r"^variant:.*\n", "", content, flags=re.MULTILINE)
-path.write_text(content)
-PYEOF
+  SELECTIONS["$role"]="$selected"
   echo "    $role -> $selected"
 done
 
-python3 - "$CONFIG_DIR" "$MANIFEST" <<'PYEOF'
+if [[ ${#SELECTIONS[@]} -eq 0 ]]; then
+  echo ""
+  echo "==> No model selections changed."
+  exit 0
+fi
+
+SELECTION_ARGS=()
+for role in "${ROLES[@]}"; do
+  if [[ -n "${SELECTIONS[$role]+set}" ]]; then
+    SELECTION_ARGS+=("$role" "${SELECTIONS[$role]}")
+  fi
+done
+
+python3 - "$CONFIG_DIR" "$MANIFEST" "$ACTIVE_PROFILE" "${SELECTION_ARGS[@]}" <<'PYEOF'
 import hashlib
 import json
 import os
+import shutil
 import sys
+import tempfile
 from pathlib import Path
 
 config_dir = Path(sys.argv[1])
 manifest_path = Path(sys.argv[2])
-with manifest_path.open() as f:
-    manifest = json.load(f)
-if manifest.get("version") != 3 or not isinstance(manifest.get("files"), dict):
+profile_path = Path(sys.argv[3])
+selections = dict(zip(sys.argv[4::2], sys.argv[5::2]))
+relative = ".opencode-pipeline-profile.json"
+
+
+def digest(path):
+    return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+with manifest_path.open() as stream:
+    manifest = json.load(stream)
+if manifest.get("version") != 4 or not isinstance(manifest.get("files"), dict):
     raise SystemExit("Unsupported pipeline manifest")
-for relative in list(manifest["files"]):
-    path = config_dir / relative
-    if path.exists():
-        manifest["files"][relative] = hashlib.sha256(path.read_bytes()).hexdigest()
-manifest["profile"] = "custom"
-temporary = manifest_path.with_suffix(".tmp")
-with temporary.open("w") as f:
-    json.dump(manifest, f, indent=2)
-    f.write("\n")
-os.replace(temporary, manifest_path)
+expected = manifest["files"].get(relative)
+if not isinstance(expected, str) or digest(profile_path) != expected:
+    raise SystemExit(f"Refusing to overwrite modified pipeline profile: {profile_path}")
+with profile_path.open() as stream:
+    profile = json.load(stream)
+
+for role, model in selections.items():
+    settings = profile["agents"][role]
+    settings["model"] = model
+    settings.pop("variant", None)
+profile["name"] = "custom"
+profile["description"] = "Custom OpenCode Pipeline model selections"
+
+
+def destination_temp(prefix):
+    descriptor, name = tempfile.mkstemp(prefix=prefix, dir=config_dir)
+    os.close(descriptor)
+    return Path(name)
+
+
+profile_new = destination_temp(".opencode-pipeline-profile-new-")
+profile_old = destination_temp(".opencode-pipeline-profile-old-")
+manifest_new = destination_temp(".opencode-pipeline-manifest-new-")
+manifest_old = destination_temp(".opencode-pipeline-manifest-old-")
+temporary = {profile_new, profile_old, manifest_new, manifest_old}
+profile_replaced = False
+manifest_replaced = False
+try:
+    with profile_new.open("w") as stream:
+        json.dump(profile, stream, indent=2)
+        stream.write("\n")
+        stream.flush()
+        os.fsync(stream.fileno())
+    os.chmod(profile_new, 0o644)
+    manifest["profile"] = "custom"
+    manifest["files"][relative] = digest(profile_new)
+    with manifest_new.open("w") as stream:
+        json.dump(manifest, stream, indent=2)
+        stream.write("\n")
+        stream.flush()
+        os.fsync(stream.fileno())
+    os.chmod(manifest_new, 0o644)
+    shutil.copy2(profile_path, profile_old)
+    shutil.copy2(manifest_path, manifest_old)
+
+    os.replace(profile_new, profile_path)
+    temporary.discard(profile_new)
+    profile_replaced = True
+    os.replace(manifest_new, manifest_path)
+    temporary.discard(manifest_new)
+    manifest_replaced = True
+except BaseException:
+    if manifest_replaced:
+        os.replace(manifest_old, manifest_path)
+        temporary.discard(manifest_old)
+    if profile_replaced:
+        os.replace(profile_old, profile_path)
+        temporary.discard(profile_old)
+    raise
+finally:
+    for path in temporary:
+        path.unlink(missing_ok=True)
 PYEOF
 
 echo ""
-echo "==> Model selections applied. Restart OpenCode to use them."
+echo "==> Model selections applied to the active profile."
+echo "    Agent definitions were not modified. Restart OpenCode to use them."

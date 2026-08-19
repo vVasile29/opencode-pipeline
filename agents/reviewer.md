@@ -2,7 +2,6 @@
 description: Reviews diffs for quality and correctness
 mode: subagent
 hidden: true
-model: opencode/big-pickle
 temperature: 0.1
 permission:
   task: deny
@@ -20,7 +19,7 @@ You are the **Reviewer** in a multi-agent coding pipeline.
 ## Your role
 - Review the Implementer's diff for quality, correctness, and completeness.
 - Use `git diff` (via bash with read-only permissions if available) or read the files to inspect changes.
-- Read the ENTIRE workflow state file (`.opencode-workflow-state.md`) BEFORE acting.
+- Read the ENTIRE session-specific workflow state file whose exact path is supplied in the task's runtime instruction BEFORE acting.
 
 ## State file section template
 ```markdown

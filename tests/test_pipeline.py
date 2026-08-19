@@ -23,6 +23,7 @@ PHASE_ROLES = (
 ROLES = ("context-manager",) + PHASE_ROLES
 ALL_AGENTS = ("pipeline",) + ROLES
 PLUGIN_RELATIVE = "plugins/opencode-pipeline-permissions.js"
+PROFILE_RELATIVE = ".opencode-pipeline-profile.json"
 
 
 def sha256(path):
@@ -77,6 +78,16 @@ class PipelineRegressionTests(unittest.TestCase):
             check=check,
         )
 
+    def run_switch(self, profile, *, check=True):
+        return subprocess.run(
+            ["bash", str(ROOT / "switch-profile.sh"), profile],
+            cwd=ROOT,
+            env=self.environment,
+            text=True,
+            capture_output=True,
+            check=check,
+        )
+
     def run_selector(self, model, *, all_roles=False, check=True):
         binary_directory = self.root / "bin"
         binary_directory.mkdir(exist_ok=True)
@@ -103,6 +114,7 @@ class PipelineRegressionTests(unittest.TestCase):
     def installed_paths(self):
         return [self.config / "agents" / f"{agent}.md" for agent in ALL_AGENTS] + [
             self.config / PLUGIN_RELATIVE,
+            self.config / PROFILE_RELATIVE,
             self.config / ".opencode-pipeline-manifest.json",
         ]
 
@@ -126,38 +138,76 @@ class PipelineRegressionTests(unittest.TestCase):
     def assert_profile(self, profile_name):
         profile = json.loads((ROOT / "models" / "profiles" / f"{profile_name}.json").read_text())
         manifest = json.loads((self.config / ".opencode-pipeline-manifest.json").read_text())
-        self.assertEqual(3, manifest["version"])
+        active_profile = json.loads((self.config / PROFILE_RELATIVE).read_text())
+        self.assertEqual(4, manifest["version"])
         self.assertEqual(profile_name, manifest["profile"])
-        self.assertEqual(11, len(manifest["files"]))
-        for agent, settings in profile["agents"].items():
+        self.assertEqual(12, len(manifest["files"]))
+        self.assertEqual(profile, active_profile)
+        for agent in profile["agents"]:
             content = frontmatter(self.config / "agents" / f"{agent}.md")
-            self.assertIn(f"\nmodel: {settings['model']}\n", content)
-            if "variant" in settings:
-                self.assertIn(f"\nvariant: {settings['variant']}\n", content)
-            else:
-                self.assertNotIn("\nvariant:", content)
+            self.assertNotIn("\nmodel:", content)
+            self.assertNotIn("\nvariant:", content)
+        runtime_config = self.apply_plugin([{}], profile=profile)[0]
+        for agent, settings in profile["agents"].items():
+            self.assertEqual(settings["model"], runtime_config["agent"][agent]["model"])
+            self.assertEqual(settings.get("variant"), runtime_config["agent"][agent].get("variant"))
         for relative, expected in manifest["files"].items():
             path = self.config / relative
             self.assertTrue(path.is_file())
             self.assertFalse(path.is_symlink())
             self.assertEqual(expected, sha256(path))
 
-    def apply_plugin(self, configs):
+    def apply_plugin(self, configs, *, profile=None):
+        if profile is None:
+            profile = json.loads((ROOT / "models" / "profiles" / "free.json").read_text())
         script = """
 const factory = (await import(process.argv[1])).default
-const configs = JSON.parse(await new Promise((resolve) => {
+const payload = JSON.parse(await new Promise((resolve) => {
   let data = ""
   process.stdin.setEncoding("utf8")
   process.stdin.on("data", (chunk) => data += chunk)
   process.stdin.on("end", () => resolve(data))
 }))
-const hooks = await factory()
+const configs = payload.configs
+const hooks = await factory(undefined, { profile: payload.profile })
 for (const config of configs) hooks.config(config)
 process.stdout.write(JSON.stringify(configs))
 """
         result = subprocess.run(
             ["node", "--input-type=module", "-e", script, (ROOT / "plugins" / "opencode-pipeline-permissions.js").as_uri()],
-            input=json.dumps(configs),
+            input=json.dumps({"configs": configs, "profile": profile}),
+            text=True,
+            capture_output=True,
+            check=True,
+        )
+        return json.loads(result.stdout)
+
+    def apply_runtime_hooks(self, calls):
+        profile = json.loads((ROOT / "models" / "profiles" / "free.json").read_text())
+        script = """
+const factory = (await import(process.argv[1])).default
+const payload = JSON.parse(await new Promise((resolve) => {
+  let data = ""
+  process.stdin.setEncoding("utf8")
+  process.stdin.on("data", (chunk) => data += chunk)
+  process.stdin.on("end", () => resolve(data))
+}))
+const calls = payload.calls
+const hooks = await factory(undefined, { profile: payload.profile })
+for (const call of calls) {
+  await hooks[call.hook](call.input, call.output)
+}
+process.stdout.write(JSON.stringify(calls))
+"""
+        result = subprocess.run(
+            [
+                "node",
+                "--input-type=module",
+                "-e",
+                script,
+                (ROOT / "plugins" / "opencode-pipeline-permissions.js").as_uri(),
+            ],
+            input=json.dumps({"calls": calls, "profile": profile}),
             text=True,
             capture_output=True,
             check=True,
@@ -202,6 +252,95 @@ process.stdout.write(JSON.stringify(configs))
         for result in results:
             task = result["permission"]["task"]
             self.assertEqual(list(ROLES), list(task)[-len(ROLES):])
+
+    def test_plugin_applies_profile_without_replacing_agent_definitions(self):
+        config = {
+            "agent": {
+                "planner": {
+                    "description": "Canonical planner description",
+                    "temperature": 0.1,
+                    "variant": "stale",
+                }
+            }
+        }
+        result = self.apply_plugin([config])[0]
+        planner = result["agent"]["planner"]
+        self.assertEqual("Canonical planner description", planner["description"])
+        self.assertEqual(0.1, planner["temperature"])
+        self.assertEqual("opencode/big-pickle", planner["model"])
+        self.assertNotIn("variant", planner)
+
+    def test_canonical_agent_sources_are_model_agnostic(self):
+        for agent in ALL_AGENTS:
+            content = frontmatter(ROOT / "agents" / f"{agent}.md")
+            self.assertNotIn("\nmodel:", content, agent)
+            self.assertNotIn("\nvariant:", content, agent)
+
+    def test_plugin_injects_session_state_into_pipeline_and_phase_tasks(self):
+        calls = self.apply_runtime_hooks(
+            [
+                {
+                    "hook": "chat.message",
+                    "input": {"sessionID": "ses_first", "agent": "pipeline"},
+                    "output": {"message": {}, "parts": [{"type": "text", "text": "Fix it"}]},
+                },
+                {
+                    "hook": "tool.execute.before",
+                    "input": {"tool": "task", "sessionID": "ses_first", "callID": "call_1"},
+                    "output": {
+                        "args": {
+                            "subagent_type": "planner",
+                            "prompt": "Clarify the request",
+                        }
+                    },
+                },
+                {
+                    "hook": "chat.message",
+                    "input": {"sessionID": "ses_second"},
+                    "output": {
+                        "message": {"agent": "pipeline"},
+                        "parts": [{"type": "text", "text": "Fix another"}],
+                    },
+                },
+            ]
+        )
+
+        first_message = calls[0]["output"]["parts"][0]["text"]
+        phase_prompt = calls[1]["output"]["args"]["prompt"]
+        second_message = calls[2]["output"]["parts"][0]["text"]
+        self.assertIn(".opencode-workflow-state-ses_first.md", first_message)
+        self.assertIn(".opencode-workflow-state-ses_first.md", phase_prompt)
+        self.assertIn(".opencode-workflow-state-ses_second.md", second_message)
+        self.assertNotIn(".opencode-workflow-state-ses_second.md", first_message)
+
+    def test_plugin_leaves_unrelated_agents_and_tasks_unchanged(self):
+        calls = [
+            {
+                "hook": "chat.message",
+                "input": {"sessionID": "ses_other", "agent": "build"},
+                "output": {"message": {}, "parts": [{"type": "text", "text": "Build it"}]},
+            },
+            {
+                "hook": "tool.execute.before",
+                "input": {"tool": "task", "sessionID": "ses_other", "callID": "call_2"},
+                "output": {
+                    "args": {
+                        "subagent_type": "explore",
+                        "prompt": "Explore the repository",
+                    }
+                },
+            },
+        ]
+        self.assertEqual(calls, self.apply_runtime_hooks(calls))
+
+    def test_pipeline_uses_only_session_specific_state_files(self):
+        pipeline = (ROOT / "agents" / "pipeline.md").read_text()
+        self.assertIn('"**/.opencode-workflow-state-*.md": allow', frontmatter(ROOT / "agents" / "pipeline.md"))
+        self.assertNotIn('"**/.opencode-workflow-state.md": allow', frontmatter(ROOT / "agents" / "pipeline.md"))
+        self.assertIn("session-specific `.opencode-workflow-state-<session-id>.md`", pipeline)
+        for agent in ALL_AGENTS:
+            content = (ROOT / "agents" / f"{agent}.md").read_text()
+            self.assertNotIn("workflow state file (`.opencode-workflow-state.md`", content, agent)
 
     def test_agent_task_boundaries(self):
         for role in ROLES:
@@ -285,43 +424,85 @@ process.stdout.write(JSON.stringify(configs))
     def test_quick_selector_assigns_one_model_to_every_role(self):
         model = "ollama/qwen3.8:27b-mtp-bf16"
         self.run_install("free")
+        agents_before = {
+            agent: (self.config / "agents" / f"{agent}.md").read_bytes() for agent in ALL_AGENTS
+        }
         self.run_selector(model, all_roles=True)
 
         manifest = json.loads((self.config / ".opencode-pipeline-manifest.json").read_text())
+        profile = json.loads((self.config / PROFILE_RELATIVE).read_text())
         self.assertEqual("custom", manifest["profile"])
         for agent in ALL_AGENTS:
-            content = frontmatter(self.config / "agents" / f"{agent}.md")
-            self.assertIn(f"\nmodel: {model}\n", content)
-            self.assertNotIn("\nvariant:", content)
+            self.assertEqual(model, profile["agents"][agent]["model"])
+            self.assertNotIn("variant", profile["agents"][agent])
+        self.assertEqual(
+            agents_before,
+            {agent: (self.config / "agents" / f"{agent}.md").read_bytes() for agent in ALL_AGENTS},
+        )
         for relative, expected in manifest["files"].items():
             self.assertEqual(expected, sha256(self.config / relative))
 
     def test_switching_from_qwen_removes_variant(self):
         self.run_install("qwen3-8-27b")
-        self.run_install("free")
+        self.run_switch("free")
         self.assert_profile("free")
 
     def test_custom_selector_updates_context_manager(self):
         self.run_install("free")
+        agents_before = {
+            agent: (self.config / "agents" / f"{agent}.md").read_bytes() for agent in ALL_AGENTS
+        }
         self.run_selector("test/provider-model")
         manifest = json.loads((self.config / ".opencode-pipeline-manifest.json").read_text())
+        profile = json.loads((self.config / PROFILE_RELATIVE).read_text())
         self.assertEqual("custom", manifest["profile"])
         for agent in ALL_AGENTS:
-            content = frontmatter(self.config / "agents" / f"{agent}.md")
-            self.assertIn("\nmodel: test/provider-model\n", content)
-            self.assertNotIn("\nvariant:", content)
+            self.assertEqual("test/provider-model", profile["agents"][agent]["model"])
+            self.assertNotIn("variant", profile["agents"][agent])
+        self.assertEqual(
+            agents_before,
+            {agent: (self.config / "agents" / f"{agent}.md").read_bytes() for agent in ALL_AGENTS},
+        )
 
     def test_profile_switching_in_both_directions(self):
         self.run_install("free")
         free_snapshot = {
             agent: (self.config / "agents" / f"{agent}.md").read_bytes() for agent in ALL_AGENTS
         }
-        self.run_install("gpt")
+        self.run_switch("gpt")
         self.assert_profile("gpt")
-        self.run_install("free")
+        self.run_switch("free")
         self.assert_profile("free")
         self.assertEqual(
             free_snapshot,
+            {agent: (self.config / "agents" / f"{agent}.md").read_bytes() for agent in ALL_AGENTS},
+        )
+
+    def test_install_migrates_version_3_manifest(self):
+        self.run_install("free")
+        manifest_path = self.config / ".opencode-pipeline-manifest.json"
+        manifest = json.loads(manifest_path.read_text())
+        manifest["version"] = 3
+        manifest["files"].pop(PROFILE_RELATIVE)
+        manifest_path.write_text(json.dumps(manifest, indent=2) + "\n")
+        (self.config / PROFILE_RELATIVE).unlink()
+
+        self.run_install("gpt")
+        self.assert_profile("gpt")
+
+    def test_profile_switch_refuses_modified_active_profile(self):
+        self.run_install("free")
+        profile_path = self.config / PROFILE_RELATIVE
+        profile_path.write_text(profile_path.read_text() + "\n")
+        agents_before = {
+            agent: (self.config / "agents" / f"{agent}.md").read_bytes() for agent in ALL_AGENTS
+        }
+
+        result = self.run_switch("gpt", check=False)
+        self.assertNotEqual(0, result.returncode)
+        self.assertIn("Refusing to overwrite modified pipeline profile", result.stderr)
+        self.assertEqual(
+            agents_before,
             {agent: (self.config / "agents" / f"{agent}.md").read_bytes() for agent in ALL_AGENTS},
         )
 

@@ -1,4 +1,5 @@
 .opencode-workflow-state.md
+.opencode-workflow-state-*.md
 __pycache__/
 *.pyc
 *.db
