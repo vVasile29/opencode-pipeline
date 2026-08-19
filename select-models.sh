@@ -1,11 +1,18 @@
 #!/usr/bin/env bash
-# Interactively assign any OpenCode model to the canonical pipeline roles.
+# Assign any OpenCode model to the canonical pipeline roles.
+# Usage: select-models.sh [model]
 set -euo pipefail
 
 CONFIG_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/opencode"
 AGENTS_DIR="$CONFIG_DIR/agents"
 MANIFEST="$CONFIG_DIR/.opencode-pipeline-manifest.json"
 ROLES=(pipeline context-manager planner debater implementer reviewer security-reviewer tester linter commit-msg)
+MODEL="${1:-}"
+
+if [[ $# -gt 1 ]]; then
+  echo "Usage: $0 [model]" >&2
+  exit 1
+fi
 
 if [[ ! -f "$MANIFEST" ]]; then
   echo "Install the canonical pipeline before selecting models." >&2
@@ -39,6 +46,11 @@ if [[ ${#MODELS[@]} -eq 0 ]]; then
   exit 1
 fi
 
+if [[ -n "$MODEL" ]] && ! printf '%s\n' "${MODELS[@]}" | grep -Fxq -- "$MODEL"; then
+  echo "Model is not available in OpenCode: $MODEL" >&2
+  exit 1
+fi
+
 USE_FZF=false
 if command -v fzf &>/dev/null; then
   USE_FZF=true
@@ -47,22 +59,26 @@ fi
 for role in "${ROLES[@]}"; do
   agent_file="$AGENTS_DIR/$role.md"
   current=$(sed -n 's/^model: //p' "$agent_file")
-  echo ""
-  echo "-- $role -- (current: $current)"
-
-  if $USE_FZF; then
-    selected=$(printf '%s\n' "${MODELS[@]}" | fzf --prompt="Model for $role > " --height=20) || true
-    [[ -n "$selected" ]] || continue
+  if [[ -n "$MODEL" ]]; then
+    selected="$MODEL"
   else
-    printf '  %2d. %s\n' 0 "keep current"
-    for i in "${!MODELS[@]}"; do
-      printf '  %2d. %s\n' "$((i + 1))" "${MODELS[$i]}"
-    done
-    read -r -p "  Enter number: " choice
-    [[ "$choice" =~ ^[0-9]+$ ]] || { echo "Invalid choice" >&2; exit 1; }
-    [[ "$choice" -ne 0 ]] || continue
-    ((choice <= ${#MODELS[@]})) || { echo "Invalid choice" >&2; exit 1; }
-    selected="${MODELS[$((choice - 1))]}"
+    echo ""
+    echo "-- $role -- (current: $current)"
+
+    if $USE_FZF; then
+      selected=$(printf '%s\n' "${MODELS[@]}" | fzf --prompt="Model for $role > " --height=20) || true
+      [[ -n "$selected" ]] || continue
+    else
+      printf '  %2d. %s\n' 0 "keep current"
+      for i in "${!MODELS[@]}"; do
+        printf '  %2d. %s\n' "$((i + 1))" "${MODELS[$i]}"
+      done
+      read -r -p "  Enter number: " choice
+      [[ "$choice" =~ ^[0-9]+$ ]] || { echo "Invalid choice" >&2; exit 1; }
+      [[ "$choice" -ne 0 ]] || continue
+      ((choice <= ${#MODELS[@]})) || { echo "Invalid choice" >&2; exit 1; }
+      selected="${MODELS[$((choice - 1))]}"
+    fi
   fi
 
   python3 - "$agent_file" "$selected" <<'PYEOF'
