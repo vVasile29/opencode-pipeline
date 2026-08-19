@@ -3,6 +3,7 @@
   "description": "OpenCode Zen free-model defaults",
   "agents": {
     "pipeline": { "model": "opencode/big-pickle" },
+    "context-manager": { "model": "opencode/big-pickle" },
     "planner": { "model": "opencode/big-pickle" },
     "debater": { "model": "opencode/mimo-v2.5-free" },
     "implementer": { "model": "opencode/deepseek-v4-flash-free" },

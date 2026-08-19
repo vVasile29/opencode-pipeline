@@ -8,7 +8,7 @@ REPO_URL="${OPENCODE_PIPELINE_REPO_URL:-https://raw.githubusercontent.com/vVasil
 CONFIG_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/opencode"
 MANIFEST="$CONFIG_DIR/.opencode-pipeline-manifest.json"
 LEGACY_GPT_MANIFEST="$CONFIG_DIR/.opencode-pipeline-gpt-manifest.json"
-ROLES=(pipeline planner debater implementer reviewer security-reviewer tester linter commit-msg)
+ROLES=(pipeline context-manager planner debater implementer reviewer security-reviewer tester linter commit-msg)
 
 if [[ ! "$PROFILE" =~ ^[a-z0-9][a-z0-9-]*$ ]]; then
   echo "Invalid profile name: $PROFILE" >&2
@@ -40,7 +40,7 @@ from pathlib import Path
 
 stage = Path(sys.argv[1])
 roles = (
-    "pipeline", "planner", "debater", "implementer", "reviewer",
+    "pipeline", "context-manager", "planner", "debater", "implementer", "reviewer",
     "security-reviewer", "tester", "linter", "commit-msg",
 )
 
@@ -49,7 +49,7 @@ with (stage / "profile.json").open() as f:
 
 agents = profile.get("agents")
 if not isinstance(agents, dict) or set(agents) != set(roles):
-    raise SystemExit("Profile must define exactly the nine canonical pipeline agents")
+    raise SystemExit("Profile must define exactly the ten canonical pipeline agents")
 
 for role in roles:
     settings = agents[role]
@@ -87,7 +87,7 @@ config_dir = Path(sys.argv[2])
 manifest_path = Path(sys.argv[3])
 profile = sys.argv[4]
 roles = (
-    "pipeline", "planner", "debater", "implementer", "reviewer",
+    "pipeline", "context-manager", "planner", "debater", "implementer", "reviewer",
     "security-reviewer", "tester", "linter", "commit-msg",
 )
 sources = {

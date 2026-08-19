@@ -3,6 +3,7 @@
   "description": "Local Ollama Qwen 3.8 27B defaults",
   "agents": {
     "pipeline": { "model": "ollama/qwen3.8:27b", "variant": "medium" },
+    "context-manager": { "model": "ollama/qwen3.8:27b", "variant": "high" },
     "planner": { "model": "ollama/qwen3.8:27b", "variant": "high" },
     "debater": { "model": "ollama/qwen3.8:27b", "variant": "high" },
     "implementer": { "model": "ollama/qwen3.8:27b", "variant": "high" },

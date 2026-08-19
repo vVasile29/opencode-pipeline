@@ -10,6 +10,35 @@ clarify(planner) -> review-plan(debater) -> implement(implementer)
 
 Only `implementer` can modify source files. The `pipeline` primary agent orchestrates all role subagents.
 
+## Optional Persistent Context
+
+The fixed coding phases remain independent of any memory implementation. An
+optional `context-manager` hook runs before planning and at meaningful
+milestones. It loads `coding-context-okf` when that skill is installed and
+otherwise reports `unavailable` without stopping or rerouting the pipeline.
+
+```text
+bootstrap? -> clarify -> review-plan -> checkpoint-plan?
+-> implement -> checkpoint-implementation? -> review-code -> security-review
+-> test -> lint -> checkpoint-verification? -> commit-msg -> finalize?
+```
+
+Install the context skill separately if you want these hooks:
+
+```bash
+npx skills add vVasile29/coding-agent-skills --skill coding-context-okf
+```
+
+The context manager is the only pipeline role that loads the skill. It places a
+bounded handoff in `.opencode-workflow-state.md`; phase agents do not load vault
+histories or topic directories themselves. Context errors are non-fatal, and
+both repositories continue to work independently.
+
+For source isolation, automatic context writes are allowed only below a path
+matching `**/Engineering Context/repositories/**`. The default skill path works
+without extra pipeline configuration. A custom path with a different directory
+name is reported as blocked rather than broadening the role's write access.
+
 ## Install
 
 Install the free-model profile:
@@ -71,7 +100,7 @@ The Qwen profile expects OpenCode to expose the model as `ollama/qwen3.8:27b` wi
 
 OpenCode recommends at least a 64K context window for local models. Configure Ollama accordingly before launching OpenCode, for example with `OLLAMA_CONTEXT_LENGTH=65536 ollama serve`.
 
-The profile selects reasoning variants by role: high for planning, debate, implementation, review, and security review; medium for orchestration and testing; and low for linting and commit messages. OpenCode resolves each variant to its configured `reasoningEffort` and passes it to Ollama as `reasoning_effort`.
+The profile selects reasoning variants by role: high for context management, planning, debate, implementation, review, and security review; medium for orchestration and testing; and low for linting and commit messages. OpenCode resolves each variant to its configured `reasoningEffort` and passes it to Ollama as `reasoning_effort`.
 
 Restart OpenCode after installation, press **Tab**, and select `pipeline`. The installer does not change `default_agent` or rewrite `opencode.json`/`opencode.jsonc`.
 
@@ -82,6 +111,7 @@ Re-run the same command with a different profile to switch models. The canonical
 | Role | Free profile | GPT profile | Qwen 3.8 27B profile |
 | --- | --- | --- | --- |
 | `pipeline` | Big Pickle | GPT-5.6 Terra, medium | Qwen 3.8 27B (Ollama), medium |
+| `context-manager` | Big Pickle | GPT-5.6 Sol, medium | Qwen 3.8 27B (Ollama), high |
 | `planner` | Big Pickle | GPT-5.6 Sol, high | Qwen 3.8 27B (Ollama), high |
 | `debater` | MiMo V2.5 Free | GPT-5.6 Terra, medium | Qwen 3.8 27B (Ollama), high |
 | `implementer` | DeepSeek V4 Flash Free | GPT-5.6 Sol, medium | Qwen 3.8 27B (Ollama), high |
@@ -111,9 +141,9 @@ The installer adds one auto-discovered global plugin:
 ~/.config/opencode/plugins/opencode-pipeline-permissions.js
 ```
 
-At runtime the plugin adds exact `task` denies for the eight role names. It preserves every unrelated user task rule and moves the exact pipeline-role denies after all existing rules so OpenCode's last-match-wins evaluation cannot be overridden by an earlier role entry or later wildcard. No wildcard role names or model-specific permission rules are needed.
+At runtime the plugin adds exact `task` denies for the nine protected subagent names: the eight phase roles plus `context-manager`. It preserves every unrelated user task rule and moves the exact pipeline-role denies after all existing rules so OpenCode's last-match-wins evaluation cannot be overridden by an earlier role entry or later wildcard. No wildcard role names or model-specific permission rules are needed.
 
-The `pipeline` agent has a local wildcard denial followed by exact allows for the eight roles, so it can launch exactly the pipeline workflow. Every role agent has a complete `task: deny`, preventing it from launching generic, exploratory, pipeline, or custom subagents. Ordinary non-pipeline primary agents cannot launch the protected role agents.
+The `pipeline` agent has a local wildcard denial followed by exact allows for the nine protected roles, so it can launch exactly the pipeline workflow and optional context hook. Every role agent has a complete `task: deny`, preventing it from launching generic, exploratory, pipeline, or custom subagents. Ordinary non-pipeline primary agents cannot launch the protected role agents.
 
 Role subagents are also hidden from autocomplete. OpenCode still permits direct user invocation where supported; task permissions enforce the model-driven orchestration boundary.
 
@@ -164,7 +194,7 @@ Uninstall removes only unchanged files listed in the ownership manifest. Modifie
 
 ```text
 opencode-pipeline/
-├── agents/                         canonical pipeline and role prompts
+├── agents/                         orchestrator, eight phase roles, and optional context hook
 ├── models/profiles/
 │   ├── free.json                   free-model assignments
 │   ├── gpt.json                    GPT-5.6 assignments

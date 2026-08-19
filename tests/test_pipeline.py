@@ -10,7 +10,7 @@ from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parents[1]
-ROLES = (
+PHASE_ROLES = (
     "planner",
     "debater",
     "implementer",
@@ -20,6 +20,7 @@ ROLES = (
     "linter",
     "commit-msg",
 )
+ROLES = ("context-manager",) + PHASE_ROLES
 ALL_AGENTS = ("pipeline",) + ROLES
 PLUGIN_RELATIVE = "plugins/opencode-pipeline-permissions.js"
 
@@ -66,6 +67,36 @@ class PipelineRegressionTests(unittest.TestCase):
             check=check,
         )
 
+    def run_uninstall(self, *, check=True):
+        return subprocess.run(
+            ["bash", str(ROOT / "uninstall.sh")],
+            cwd=ROOT,
+            env=self.environment,
+            text=True,
+            capture_output=True,
+            check=check,
+        )
+
+    def run_selector(self, model):
+        binary_directory = self.root / "bin"
+        binary_directory.mkdir()
+        opencode = binary_directory / "opencode"
+        opencode.write_text(f"#!/bin/sh\nprintf '%s\\n' '{model}'\n")
+        opencode.chmod(0o755)
+        fzf = binary_directory / "fzf"
+        fzf.write_text(f"#!/bin/sh\nwhile IFS= read -r line; do :; done\nprintf '%s\\n' '{model}'\n")
+        fzf.chmod(0o755)
+        environment = self.environment.copy()
+        environment["PATH"] = f"{binary_directory}{os.pathsep}{environment['PATH']}"
+        return subprocess.run(
+            ["bash", str(ROOT / "select-models.sh")],
+            cwd=ROOT,
+            env=environment,
+            text=True,
+            capture_output=True,
+            check=True,
+        )
+
     def installed_paths(self):
         return [self.config / "agents" / f"{agent}.md" for agent in ALL_AGENTS] + [
             self.config / PLUGIN_RELATIVE,
@@ -94,7 +125,7 @@ class PipelineRegressionTests(unittest.TestCase):
         manifest = json.loads((self.config / ".opencode-pipeline-manifest.json").read_text())
         self.assertEqual(3, manifest["version"])
         self.assertEqual(profile_name, manifest["profile"])
-        self.assertEqual(10, len(manifest["files"]))
+        self.assertEqual(11, len(manifest["files"]))
         for agent, settings in profile["agents"].items():
             content = frontmatter(self.config / "agents" / f"{agent}.md")
             self.assertIn(f"\nmodel: {settings['model']}\n", content)
@@ -184,6 +215,38 @@ process.stdout.write(JSON.stringify(configs))
             task_rules.append((key.strip('"'), value))
         self.assertEqual([("*", "deny")] + [(role, "allow") for role in ROLES], task_rules)
 
+    def test_context_manager_is_scoped_to_optional_context(self):
+        content = (ROOT / "agents" / "context-manager.md").read_text()
+        permissions = frontmatter(ROOT / "agents" / "context-manager.md")
+        self.assertIn('  edit:\n    "*": deny\n    "**/Engineering Context/repositories/**": allow', permissions)
+        self.assertIn('  bash:\n    "*": deny', permissions)
+        self.assertNotIn('"git diff *": allow', permissions)
+        self.assertNotIn('"git log *": allow', permissions)
+        self.assertIn('  skill:\n    "*": deny\n    coding-context-okf: allow', permissions)
+        self.assertIn("  external_directory: allow", permissions)
+        self.assertIn("Never modify project source", content)
+        self.assertIn("Context failures are non-fatal", content)
+
+    def test_pipeline_declares_non_fatal_context_hooks(self):
+        content = (ROOT / "agents" / "pipeline.md").read_text()
+        for operation in (
+            "bootstrap",
+            "checkpoint-plan",
+            "checkpoint-implementation",
+            "checkpoint-verification",
+            "finalize",
+        ):
+            self.assertIn(f"`{operation}`", content)
+        self.assertIn("non-fatal hooks, not coding phases", content)
+        self.assertIn("skip all", content)
+        self.assertIn("remaining context hooks", content)
+        self.assertIn("before the first planner", content)
+
+    def test_reviewer_routes_through_security_review(self):
+        content = (ROOT / "agents" / "reviewer.md").read_text()
+        self.assertIn("**Next agent**: security-reviewer (if approved)", content)
+        self.assertNotIn("**Next agent**: tester (if approved)", content)
+
     def test_fresh_free_profile_installation(self):
         self.run_install("free")
         self.assert_profile("free")
@@ -199,6 +262,7 @@ process.stdout.write(JSON.stringify(configs))
         self.assertEqual(
             {
                 "pipeline": "medium",
+                "context-manager": "high",
                 "planner": "high",
                 "debater": "high",
                 "implementer": "high",
@@ -215,6 +279,16 @@ process.stdout.write(JSON.stringify(configs))
         self.run_install("qwen3-8-27b")
         self.run_install("free")
         self.assert_profile("free")
+
+    def test_custom_selector_updates_context_manager(self):
+        self.run_install("free")
+        self.run_selector("test/provider-model")
+        manifest = json.loads((self.config / ".opencode-pipeline-manifest.json").read_text())
+        self.assertEqual("custom", manifest["profile"])
+        for agent in ALL_AGENTS:
+            content = frontmatter(self.config / "agents" / f"{agent}.md")
+            self.assertIn("\nmodel: test/provider-model\n", content)
+            self.assertNotIn("\nvariant:", content)
 
     def test_profile_switching_in_both_directions(self):
         self.run_install("free")
@@ -298,6 +372,21 @@ process.stdout.write(JSON.stringify(configs))
         self.run_install("free")
         self.run_install("gpt")
         self.assertEqual(before, {path: path.read_bytes() for path in files})
+
+    def test_uninstall_removes_unchanged_context_manager(self):
+        self.run_install("free")
+        self.run_uninstall()
+        for path in self.installed_paths():
+            self.assertFalse(path.exists(), path)
+
+    def test_uninstall_preserves_modified_context_manager(self):
+        self.run_install("free")
+        context_manager = self.config / "agents" / "context-manager.md"
+        context_manager.write_text(context_manager.read_text() + "\nuser modification\n")
+        result = self.run_uninstall()
+        self.assertTrue(context_manager.exists())
+        self.assertIn("preserved modified file", result.stdout)
+        self.assertFalse((self.config / ".opencode-pipeline-manifest.json").exists())
 
 
 if __name__ == "__main__":

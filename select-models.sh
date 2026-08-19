@@ -5,7 +5,7 @@ set -euo pipefail
 CONFIG_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/opencode"
 AGENTS_DIR="$CONFIG_DIR/agents"
 MANIFEST="$CONFIG_DIR/.opencode-pipeline-manifest.json"
-ROLES=(pipeline planner debater implementer reviewer security-reviewer tester linter commit-msg)
+ROLES=(pipeline context-manager planner debater implementer reviewer security-reviewer tester linter commit-msg)
 
 if [[ ! -f "$MANIFEST" ]]; then
   echo "Install the canonical pipeline before selecting models." >&2

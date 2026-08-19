@@ -1,6 +1,7 @@
 export default async () => ({
   config(config) {
     const roles = [
+      "context-manager",
       "planner",
       "debater",
       "implementer",
