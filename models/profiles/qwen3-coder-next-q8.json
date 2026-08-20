@@ -1,0 +1,16 @@
+{
+  "name": "qwen3-coder-next-q8",
+  "description": "Local Ollama Qwen3-Coder-Next Q8 defaults",
+  "agents": {
+    "pipeline": { "model": "ollama/qwen3-coder-next:q8_0" },
+    "context-manager": { "model": "ollama/qwen3-coder-next:q8_0" },
+    "planner": { "model": "ollama/qwen3-coder-next:q8_0" },
+    "debater": { "model": "ollama/qwen3-coder-next:q8_0" },
+    "implementer": { "model": "ollama/qwen3-coder-next:q8_0" },
+    "reviewer": { "model": "ollama/qwen3-coder-next:q8_0" },
+    "security-reviewer": { "model": "ollama/qwen3-coder-next:q8_0" },
+    "tester": { "model": "ollama/qwen3-coder-next:q8_0" },
+    "linter": { "model": "ollama/qwen3-coder-next:q8_0" },
+    "commit-msg": { "model": "ollama/qwen3-coder-next:q8_0" }
+  }
+}
