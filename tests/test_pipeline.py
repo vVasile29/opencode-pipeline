@@ -397,6 +397,26 @@ process.stdout.write(JSON.stringify(calls))
         self.run_install("gpt")
         self.assert_profile("gpt")
 
+    def test_fresh_gpt_oss_120b_profile_installation(self):
+        self.run_install("gpt-oss-120b")
+        self.assert_profile("gpt-oss-120b")
+        profile = json.loads((ROOT / "models" / "profiles" / "gpt-oss-120b.json").read_text())
+        self.assertEqual(
+            {
+                "pipeline": "medium",
+                "context-manager": "high",
+                "planner": "high",
+                "debater": "high",
+                "implementer": "high",
+                "reviewer": "high",
+                "security-reviewer": "high",
+                "tester": "medium",
+                "linter": "low",
+                "commit-msg": "low",
+            },
+            {agent: settings["variant"] for agent, settings in profile["agents"].items()},
+        )
+
     def test_fresh_qwen3_8_27b_profile_installation(self):
         self.run_install("qwen3-8-27b")
         self.assert_profile("qwen3-8-27b")

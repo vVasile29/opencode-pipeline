@@ -1,0 +1,16 @@
+{
+  "name": "gpt-oss-120b",
+  "description": "Local Ollama GPT-OSS 120B defaults",
+  "agents": {
+    "pipeline": { "model": "ollama/gpt-oss:120b", "variant": "medium" },
+    "context-manager": { "model": "ollama/gpt-oss:120b", "variant": "high" },
+    "planner": { "model": "ollama/gpt-oss:120b", "variant": "high" },
+    "debater": { "model": "ollama/gpt-oss:120b", "variant": "high" },
+    "implementer": { "model": "ollama/gpt-oss:120b", "variant": "high" },
+    "reviewer": { "model": "ollama/gpt-oss:120b", "variant": "high" },
+    "security-reviewer": { "model": "ollama/gpt-oss:120b", "variant": "high" },
+    "tester": { "model": "ollama/gpt-oss:120b", "variant": "medium" },
+    "linter": { "model": "ollama/gpt-oss:120b", "variant": "low" },
+    "commit-msg": { "model": "ollama/gpt-oss:120b", "variant": "low" }
+  }
+}
