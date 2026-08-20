@@ -1,0 +1,16 @@
+{
+  "name": "qwen3-5-122b",
+  "description": "Local Ollama Qwen 3.5 122B defaults",
+  "agents": {
+    "pipeline": { "model": "ollama/qwen3.5:122b", "variant": "high" },
+    "context-manager": { "model": "ollama/qwen3.5:122b", "variant": "high" },
+    "planner": { "model": "ollama/qwen3.5:122b", "variant": "high" },
+    "debater": { "model": "ollama/qwen3.5:122b", "variant": "high" },
+    "implementer": { "model": "ollama/qwen3.5:122b", "variant": "high" },
+    "reviewer": { "model": "ollama/qwen3.5:122b", "variant": "high" },
+    "security-reviewer": { "model": "ollama/qwen3.5:122b", "variant": "high" },
+    "tester": { "model": "ollama/qwen3.5:122b", "variant": "high" },
+    "linter": { "model": "ollama/qwen3.5:122b", "variant": "none" },
+    "commit-msg": { "model": "ollama/qwen3.5:122b", "variant": "none" }
+  }
+}
