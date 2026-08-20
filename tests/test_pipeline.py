@@ -437,6 +437,16 @@ process.stdout.write(JSON.stringify(calls))
             {agent: settings["variant"] for agent, settings in profile["agents"].items()},
         )
 
+    def test_fresh_qwen3_coder_next_q8_profile_installation(self):
+        self.run_install("qwen3-coder-next-q8")
+        self.assert_profile("qwen3-coder-next-q8")
+        profile = json.loads(
+            (ROOT / "models" / "profiles" / "qwen3-coder-next-q8.json").read_text()
+        )
+        for settings in profile["agents"].values():
+            self.assertEqual("ollama/qwen3-coder-next:q8_0", settings["model"])
+            self.assertNotIn("variant", settings)
+
     def test_fresh_qwen3_8_27b_mtp_bf16_profile_installation(self):
         self.run_install("qwen3-8-27b-mtp-bf16")
         self.assert_profile("qwen3-8-27b-mtp-bf16")

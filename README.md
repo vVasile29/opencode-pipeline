@@ -106,7 +106,14 @@ ollama pull gpt-oss:120b
 curl -fsSL https://raw.githubusercontent.com/vVasile29/opencode-pipeline/master/install.sh | bash -s -- gpt-oss-120b
 ```
 
-The local reasoning profiles expect OpenCode to expose the selected model with `low`, `medium`, and `high` variants. If Ollama is not already configured as an OpenCode provider, add this to your global `~/.config/opencode/opencode.json` (merging it with any existing configuration):
+Install the local Ollama Qwen3-Coder-Next Q8 profile:
+
+```bash
+ollama pull qwen3-coder-next:q8_0
+curl -fsSL https://raw.githubusercontent.com/vVasile29/opencode-pipeline/master/install.sh | bash -s -- qwen3-coder-next-q8
+```
+
+Local Ollama profiles require matching OpenCode model entries. Reasoning-capable models expose `low`, `medium`, and `high` variants. If Ollama is not already configured as an OpenCode provider, add this to your global `~/.config/opencode/opencode.json` (merging it with any existing configuration):
 
 ```json
 {
@@ -156,6 +163,14 @@ The local reasoning profiles expect OpenCode to expose the selected model with `
               "reasoningEffort": "high"
             }
           }
+        },
+        "qwen3-coder-next:q8_0": {
+          "name": "Qwen3-Coder-Next Q8 (local)",
+          "reasoning": false,
+          "limit": {
+            "context": 262144,
+            "output": 65536
+          }
         }
       }
     }
@@ -167,6 +182,8 @@ OpenCode recommends at least a 64K context window for local models. Configure Ol
 
 The local profiles select reasoning variants by role: high for context management, planning, debate, implementation, review, and security review; medium for orchestration and testing; and low for linting and commit messages. OpenCode resolves each variant to its configured `reasoningEffort` and passes it to Ollama as `reasoning_effort`.
 
+Qwen3-Coder-Next supports only non-thinking mode, so its OpenCode model entry sets `reasoning` to `false` and its profile intentionally has no variants.
+
 Restart OpenCode after installation, press **Tab**, and select `pipeline`. The installer does not change `default_agent` or rewrite `opencode.json`/`opencode.jsonc`.
 
 Install once, then switch a named profile without reinstalling the agents:
@@ -175,24 +192,24 @@ Install once, then switch a named profile without reinstalling the agents:
 bash <(curl -fsSL https://raw.githubusercontent.com/vVasile29/opencode-pipeline/master/switch-profile.sh) gpt
 ```
 
-Use `free`, `gpt`, `gpt-oss-120b`, `qwen3-8-27b`, or `qwen3-8-27b-mtp-bf16`. The canonical agent
+Use `free`, `gpt`, `gpt-oss-120b`, `qwen3-coder-next-q8`, `qwen3-8-27b`, or `qwen3-8-27b-mtp-bf16`. The canonical agent
 files remain byte-for-byte unchanged. OpenCode must be restarted after every
 profile switch.
 
 ## Profiles
 
-| Role | Free profile | GPT profile | GPT-OSS 120B profile | Qwen 3.8 27B profile |
-| --- | --- | --- | --- | --- |
-| `pipeline` | Big Pickle | GPT-5.6 Terra, medium | GPT-OSS 120B (Ollama), medium | Qwen 3.8 27B (Ollama), medium |
-| `context-manager` | Big Pickle | GPT-5.6 Sol, medium | GPT-OSS 120B (Ollama), high | Qwen 3.8 27B (Ollama), high |
-| `planner` | Big Pickle | GPT-5.6 Sol, high | GPT-OSS 120B (Ollama), high | Qwen 3.8 27B (Ollama), high |
-| `debater` | MiMo V2.5 Free | GPT-5.6 Terra, medium | GPT-OSS 120B (Ollama), high | Qwen 3.8 27B (Ollama), high |
-| `implementer` | DeepSeek V4 Flash Free | GPT-5.6 Sol, medium | GPT-OSS 120B (Ollama), high | Qwen 3.8 27B (Ollama), high |
-| `reviewer` | Big Pickle | GPT-5.6 Terra, medium | GPT-OSS 120B (Ollama), high | Qwen 3.8 27B (Ollama), high |
-| `security-reviewer` | Big Pickle | GPT-5.6 Sol, high | GPT-OSS 120B (Ollama), high | Qwen 3.8 27B (Ollama), high |
-| `tester` | Big Pickle | GPT-5.6 Luna, low | GPT-OSS 120B (Ollama), medium | Qwen 3.8 27B (Ollama), medium |
-| `linter` | Big Pickle | GPT-5.6 Luna, low | GPT-OSS 120B (Ollama), low | Qwen 3.8 27B (Ollama), low |
-| `commit-msg` | Big Pickle | GPT-5.6 Luna, low | GPT-OSS 120B (Ollama), low | Qwen 3.8 27B (Ollama), low |
+| Role | Free profile | GPT profile | GPT-OSS 120B profile | Qwen3 Coder Q8 profile | Qwen 3.8 27B profile |
+| --- | --- | --- | --- | --- | --- |
+| `pipeline` | Big Pickle | GPT-5.6 Terra, medium | GPT-OSS 120B (Ollama), medium | Qwen3 Coder Q8 (Ollama) | Qwen 3.8 27B (Ollama), medium |
+| `context-manager` | Big Pickle | GPT-5.6 Sol, medium | GPT-OSS 120B (Ollama), high | Qwen3 Coder Q8 (Ollama) | Qwen 3.8 27B (Ollama), high |
+| `planner` | Big Pickle | GPT-5.6 Sol, high | GPT-OSS 120B (Ollama), high | Qwen3 Coder Q8 (Ollama) | Qwen 3.8 27B (Ollama), high |
+| `debater` | MiMo V2.5 Free | GPT-5.6 Terra, medium | GPT-OSS 120B (Ollama), high | Qwen3 Coder Q8 (Ollama) | Qwen 3.8 27B (Ollama), high |
+| `implementer` | DeepSeek V4 Flash Free | GPT-5.6 Sol, medium | GPT-OSS 120B (Ollama), high | Qwen3 Coder Q8 (Ollama) | Qwen 3.8 27B (Ollama), high |
+| `reviewer` | Big Pickle | GPT-5.6 Terra, medium | GPT-OSS 120B (Ollama), high | Qwen3 Coder Q8 (Ollama) | Qwen 3.8 27B (Ollama), high |
+| `security-reviewer` | Big Pickle | GPT-5.6 Sol, high | GPT-OSS 120B (Ollama), high | Qwen3 Coder Q8 (Ollama) | Qwen 3.8 27B (Ollama), high |
+| `tester` | Big Pickle | GPT-5.6 Luna, low | GPT-OSS 120B (Ollama), medium | Qwen3 Coder Q8 (Ollama) | Qwen 3.8 27B (Ollama), medium |
+| `linter` | Big Pickle | GPT-5.6 Luna, low | GPT-OSS 120B (Ollama), low | Qwen3 Coder Q8 (Ollama) | Qwen 3.8 27B (Ollama), low |
+| `commit-msg` | Big Pickle | GPT-5.6 Luna, low | GPT-OSS 120B (Ollama), low | Qwen3 Coder Q8 (Ollama) | Qwen 3.8 27B (Ollama), low |
 
 Profiles live under `models/profiles/`. Adding another provider, such as Qwen, requires only another profile; it does not require another set of agents.
 
@@ -291,6 +308,7 @@ opencode-pipeline/
 │   ├── free.json                   free-model assignments
 │   ├── gpt.json                    GPT-5.6 assignments
 │   ├── gpt-oss-120b.json           local Ollama GPT-OSS 120B assignments
+│   ├── qwen3-coder-next-q8.json     local Ollama Qwen3-Coder-Next Q8 assignments
 │   ├── qwen3-8-27b.json            local Ollama Qwen 3.8 27B assignments
 │   └── qwen3-8-27b-mtp-bf16.json   local Ollama Qwen 3.8 27B MTP BF16 assignments
 ├── plugins/
